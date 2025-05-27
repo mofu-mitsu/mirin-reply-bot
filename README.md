@@ -4,8 +4,7 @@
 
 ## 🔽 ダウンロード
 
-最新のリリースから .zip ファイルをダウンロードしてください👇  
-➡ [ReleasesページへGO](https://github.com/mofu-mitsu/mirin-reply-bot/releases)
+「ご購入者様は、購入後に共有されたリンクからZIPをDLしてください」
 
 ## 📖 説明書や詳細は…
 
