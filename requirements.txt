@@ -1,0 +1,11 @@
+atproto
+python-dotenv
+requests
+
+atproto
+transformers==4.36.2
+torch==2.0.1
+psutil==5.9.8
+sentencepiece==0.2.0
+python-dotenv
+accelerate
