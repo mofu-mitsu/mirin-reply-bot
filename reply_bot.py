@@ -273,7 +273,7 @@ def clean_sentence_ending(reply):
 model = None
 tokenizer = None
 
-def initialize_model_and_tokenizer(model_name="cyberagent/open-calm-1b"):
+def initialize_model_and_tokenizer(model_name="cyberagent/open-calm-small"):
     global model, tokenizer
     if model is None or tokenizer is None:
         print(f"📤 {datetime.now(timezone.utc).isoformat()} ｜ トークナイザ読み込み中…")
@@ -283,7 +283,7 @@ def initialize_model_and_tokenizer(model_name="cyberagent/open-calm-1b"):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float32,  # float32にも変更可能
-            device_map="cpu"  # ← 明示的に！
+            device_map="auto"  # ← 明示的に！
         ).eval()
         print(f"📤 {datetime.now(timezone.utc).isoformat()} ｜ モデル読み込み完了")
     return model, tokenizer
