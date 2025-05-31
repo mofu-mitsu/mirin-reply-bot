@@ -292,7 +292,7 @@ def initialize_model_and_tokenizer(model_name="rinna/japanese-gpt2-small"):
 # ★ カスタマイズポイント4: 返信生成（generate_reply_via_local_model）
 # ------------------------------
 def generate_reply_via_local_model(user_input):
-    model_name = "cyberagent/open-calm-3b"
+    model_name = "rinna/japanese-gpt2-small"
     # 失敗時のメッセージ
     failure_messages = [
         "えへへ、ごめんね〜〜今ちょっと調子悪いみたい……またお話しよ？♡",
