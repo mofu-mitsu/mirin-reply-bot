@@ -273,7 +273,7 @@ def clean_sentence_ending(reply):
 model = None
 tokenizer = None
 
-def initialize_model_and_tokenizer(model_name="rinna/japanese-gpt2-small"):
+def initialize_model_and_tokenizer(model_name="cyberagent/open-calm-small"):
     global model, tokenizer
     if model is None or tokenizer is None:
         print(f"📤 {datetime.now(timezone.utc).isoformat()} ｜ トークナイザ読み込み中…")
@@ -292,7 +292,7 @@ def initialize_model_and_tokenizer(model_name="rinna/japanese-gpt2-small"):
 # ★ カスタマイズポイント4: 返信生成（generate_reply_via_local_model）
 # ------------------------------
 def generate_reply_via_local_model(user_input):
-    model_name = "rinna/japanese-gpt2-small"
+    model_name = "cyberagent/open-calm-small"
     # 失敗時のメッセージ
     failure_messages = [
         "えへへ、ごめんね〜〜今ちょっと調子悪いみたい……またお話しよ？♡",
