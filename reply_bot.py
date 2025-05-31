@@ -273,7 +273,7 @@ def clean_sentence_ending(reply):
 model = None
 tokenizer = None
 
-def initialize_model_and_tokenizer(model_name="cyberagent/open-calm-small"):
+def initialize_model_and_tokenizer(model_name="rinna/japanese-gpt2-small"):
     global model, tokenizer
     if model is None or tokenizer is None:
         print(f"📤 {datetime.now(timezone.utc).isoformat()} ｜ トークナイザ読み込み中…")
