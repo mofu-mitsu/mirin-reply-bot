@@ -268,7 +268,7 @@ def clean_sentence_ending(reply):
     #if not re.search(r"[。！？♡♪笑]$", reply):
         #reply += random.choice([ "♡", "♪"])
 
-    #return reply
+    return reply
 
 
 # ------------------------------
