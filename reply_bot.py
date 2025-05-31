@@ -283,7 +283,7 @@ def initialize_model_and_tokenizer(model_name="rinna/japanese-gpt2-small"):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float32,  # float32にも変更可能
-            device_map="cpu"  # ← 明示的に！
+            device_map="auto"  # ← 明示的に！
         ).eval()
         print(f"📤 {datetime.now(timezone.utc).isoformat()} ｜ モデル読み込み完了")
     return model, tokenizer
