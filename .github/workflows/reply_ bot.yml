@@ -1,8 +1,8 @@
-name: Bluesky Reply
+name: Bluesky Reply 
 
 on:
   schedule:
-    - cron: '0 */9 * * *'  # 9時間おき
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -12,19 +12,15 @@ concurrency:
 jobs:
   run-reply-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 60  # 長めにタイムアウト設定
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Cache HuggingFace models
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/huggingface
-          key: ${{ runner.os }}-huggingface-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-huggingface-
+      - name: Clear HuggingFace cache
+        run: |
+          rm -rf ~/.cache/huggingface
 
       - name: Clear pip cache
         run: |
@@ -49,8 +45,8 @@ jobs:
         env:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }} 
-          GIST_TOKEN_REPLY:  ${{ secrets.GIST_TOKEN_REPLY }}
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
+          GIST_TOKEN_REPLY: ${{ secrets.GIST_TOKEN_REPLY }}
           GIST_ID: a9277e9e3fcf7caf73877b0d231f4a4d
         run: |
           python reply_bot.py
