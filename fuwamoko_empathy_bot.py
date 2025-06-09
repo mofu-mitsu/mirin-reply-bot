@@ -53,9 +53,8 @@ def is_mutual_follow(client, handle):
 def get_blob_image_url(cid):
     return f"https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={cid}"
 
-def download_image_from_blob(cid, client):
+def download_image_from_blob(cid, access_token):
     try:
-        access_token = client._session.access.jwt  # トークン取得
         if not access_token:
             print("⚠️ アクセストークンが取得できませんでした")
             return None
@@ -71,7 +70,7 @@ def download_image_from_blob(cid, client):
         print(f"⚠️ 画像ダウンロード失敗: {e}")
         return None
 
-def process_image(image_data, text="", client=None):
+def process_image(image_data, text="", client=None, access_token=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
         print("⚠️ 画像CIDが見つかりません")
         return False
@@ -81,7 +80,7 @@ def process_image(image_data, text="", client=None):
 
     try:
         # Blobから画像を取得
-        img = download_image_from_blob(cid, client)
+        img = download_image_from_blob(cid, access_token)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -203,7 +202,8 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        client.login(HANDLE, APP_PASSWORD)
+        session = client.login(HANDLE, APP_PASSWORD)
+        access_jwt = session['accessJwt']  # ログイン時トークン取得
         print("📨💖 ふわもこ共感Bot起動中…")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
@@ -229,7 +229,7 @@ def run_once():
                 image_data = embed.images[0]
                 print(f"DEBUG: image_data = {image_data}")
                 print(f"DEBUG: image_data keys = {getattr(image_data, '__dict__', 'not a dict')}")
-                if process_image(image_data, text, client=client) and random.random() < 0.5:  # 50%確率
+                if process_image(image_data, text, client=client, access_token=access_jwt) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)  # image_url不要
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
@@ -254,6 +254,8 @@ def run_once():
 
     except InvokeTimeoutError:
         print("⚠️ APIタイムアウト！")
+    except Exception as e:
+        print(f"⚠️ ログインまたは実行エラー: {e}")
 
 if __name__ == "__main__":
     load_dotenv()
