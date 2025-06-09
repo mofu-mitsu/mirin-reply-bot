@@ -19,15 +19,15 @@ from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
-MODEL_NAME = "cyberagent/open-calm-1b"  # モデル名
+MODEL_NAME = "cyberagent/open-calm-1b"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 # 環境変数読み込み
-load_dotenv()  # .envファイルから読み込み（なくてもSecretsで動作）
+load_dotenv()
 HANDLE = os.environ.get("HANDLE")
 APP_PASSWORD = os.environ.get("APP_PASSWORD")
-SESSION_FILE = "session_string.txt"  # セッション文字列保存用
+SESSION_FILE = "session_string.txt"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = f"{context}: 画像: {image_url}, テキスト: {text}, 言語: {lang}"
@@ -52,20 +52,34 @@ def is_mutual_follow(client, handle):
         return False
 
 def get_blob_image_url(cid):
-    # Bluesky CDNから直接画像を取得
-    return f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg"  # @jpegでMIMEタイプ指定
+    return f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg"
 
-def download_image_from_blob(cid, client, repo=None):  # repoは不要だが互換性で残す
-    try:
-        image_url = get_blob_image_url(cid)
-        print(f"DEBUG: Downloading image from CDN: {image_url}")  # ★デバッグ★
-        response = requests.get(image_url, stream=True, timeout=10)  # タイムアウト設定
-        response.raise_for_status()  # HTTPエラー検知
-        print("DEBUG: Image downloaded from CDN successfully")  # ★デバッグ★
-        return Image.open(BytesIO(response.content))
-    except Exception as e:
-        print(f"⚠️ 画像ダウンロード失敗（CDN）: {e}")
-        return None
+def download_image_from_blob(cid, client, repo=None):
+    cdn_urls = [
+        f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg",
+        f"https://cdn.bsky.app/img/feed_full/plain/{cid}",
+        f"https://cdn.bsky.app/img/feed/plain/{cid}@jpeg",
+        f"https://cdn.bsky.app/img/feed/plain/{cid}",
+        f"https://cdn.bsky.app/blob/{cid}",
+    ]
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+    }
+    
+    for url in cdn_urls:
+        print(f"DEBUG: Trying CDN URL: {url}")
+        try:
+            response = requests.get(url, stream=True, timeout=10, headers=headers)
+            response.raise_for_status()
+            print("✅ CDN画像取得成功！")
+            return Image.open(BytesIO(response.content))
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ CDN画像取得失敗 ({url}): {e}")
+        except Exception as e:
+            print(f"⚠️ CDN画像取得失敗 (予期せぬエラー - {url}): {e}")
+    
+    print("❌ 全CDNパターンで画像取得失敗")
+    return None
 
 def process_image(image_data, text="", client=None, post=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
@@ -76,7 +90,7 @@ def process_image(image_data, text="", client=None, post=None):
     print(f"DEBUG: CID={cid}")
 
     try:
-        img = download_image_from_blob(cid, client)  # repoは不要
+        img = download_image_from_blob(cid, client)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -232,14 +246,32 @@ def run_once():
 
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
-            time.sleep(random.uniform(5, 10))  # インデックス遅延対策
+            print(f"DEBUG: Post author={post.post.author.handle}, URI={post.post.uri}")
+            # 投稿のJSON構造をログ出力
+            post_dict = {
+                "uri": post.post.uri,
+                "cid": post.post.cid,
+                "author": post.post.author.handle,
+                "did": post.post.author.did,
+                "text": getattr(post.post.record, "text", ""),
+                "embed": getattr(post.post.record, "embed", None)
+            }
+            print(f"DEBUG: Post JSON={json.dumps(post_dict, default=str, ensure_ascii=False)}")
+            
+            time.sleep(random.uniform(5, 10))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
             post_id = uri.split('/')[-1]
             author = post.post.author.handle
             embed = getattr(post.post.record, "embed", None)
 
-            # 画像データの取得
+            # 投稿詳細を取得
+            try:
+                thread = client.app.bsky.feed.get_post_thread(params={"uri": uri, "depth": 1})
+                print(f"DEBUG: Thread data={json.dumps(thread.__dict__, default=str, ensure_ascii=False)}")
+            except Exception as e:
+                print(f"⚠️ get_post_threadエラー: {e}")
+
             image_data_list = []
             if embed and hasattr(embed, 'images') and embed.images:
                 print("DEBUG: Found direct embedded images")
@@ -247,6 +279,7 @@ def run_once():
             elif embed and hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images') and embed.record.embed.images:
                 print("DEBUG: Found embedded images in quoted post")
                 image_data_list = embed.record.embed.images
+                print(f"DEBUG: Quoted post author={embed.record.author.handle}, DID={embed.record.author.did}")
             else:
                 print("DEBUG: No images found in post")
                 continue
@@ -255,7 +288,7 @@ def run_once():
                 continue
 
             if image_data_list and is_mutual_follow(client, author):
-                image_data = image_data_list[0]  # 最初の画像のみ
+                image_data = image_data_list[0]
                 print(f"DEBUG: image_data={image_data}")
                 print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
                 if process_image(image_data, text, client=client, post=post) and random.random() < 0.5:
