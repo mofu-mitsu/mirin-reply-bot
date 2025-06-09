@@ -112,12 +112,12 @@ def process_image(image_data, text="", client=None, post=None):
         check_text = text.lower()
         keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
         if any(keyword in check_text for keyword in keywords):
-            print("🎉 ふわもこキーワード検出！")
+            print("🎉 キーワード検出！")
             return True
 
         return False
     except Exception as e:
-        print(f"⚠️ 画像解析エラー: {e}")
+        print(f"🔍 DEBUG: 画像解析エラー: {e}")
         return False
 
 def is_quoted_repost(post):
@@ -247,17 +247,33 @@ def run_once():
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
             print(f"DEBUG: Post author={post.post.author.handle}, URI={post.post.uri}")
-            # 投稿のJSON構造をログ出力
+            # 投稿のJSON構造を詳細ログ
             post_dict = {
                 "uri": post.post.uri,
                 "cid": post.post.cid,
                 "author": post.post.author.handle,
                 "did": post.post.author.did,
                 "text": getattr(post.post.record, "text", ""),
-                "embed": getattr(post.post.record, "embed", None)
+                "embed": getattr(post.post.record, "embed", None).__dict__ if getattr(post.post.record, "embed", None) else None
             }
-            print(f"DEBUG: Post JSON={json.dumps(post_dict, default=str, ensure_ascii=False)}")
+            print(f"🔍 DEBUG: Post JSON={json.dumps(post_dict, default=str, ensure_ascii=False, indent=2)}")
             
+            # get_post_threadで投稿詳細取得
+            try:
+                thread = client.app.bsky.feed.get_post_thread(params={"uri": post.post.uri, "depth": 2})
+                thread_dict = {
+                    "uri": thread.thread.uri,
+                    "post": {
+                        "author": thread.thread.post.author.handle,
+                        "did": thread.thread.post.author.did,
+                        "text": getattr(thread.thread.post.record, "text", ""),
+                        "embed": getattr(thread.thread.post.record, "embed", None).__dict__ if getattr(thread.thread.post.record, "embed", None) else None
+                    }
+                }
+                print(f"🔍 DEBUG: Thread JSON={json.dumps(thread_dict, default=str, ensure_ascii=False, indent=2)}")
+            except Exception as e:
+                print(f"⚠️ get_post_threadエラー: {e}")
+
             time.sleep(random.uniform(5, 10))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
@@ -265,23 +281,23 @@ def run_once():
             author = post.post.author.handle
             embed = getattr(post.post.record, "embed", None)
 
-            # 投稿詳細を取得
-            try:
-                thread = client.app.bsky.feed.get_post_thread(params={"uri": uri, "depth": 1})
-                print(f"DEBUG: Thread data={json.dumps(thread.__dict__, default=str, ensure_ascii=False)}")
-            except Exception as e:
-                print(f"⚠️ get_post_threadエラー: {e}")
-
             image_data_list = []
             if embed and hasattr(embed, 'images') and embed.images:
-                print("DEBUG: Found direct embedded images")
+                print("🔍 DEBUG: Found direct embedded images")
                 image_data_list = embed.images
+                print(f"🔍 DEBUG: Direct images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
             elif embed and hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images') and embed.record.embed.images:
-                print("DEBUG: Found embedded images in quoted post")
+                print("🔍 DEBUG: Found embedded images in quoted post")
                 image_data_list = embed.record.embed.images
-                print(f"DEBUG: Quoted post author={embed.record.author.handle}, DID={embed.record.author.did}")
+                print(f"🔍 DEBUG: Quoted post author={embed.record.author.handle}, DID={embed.record.author.did}")
+                print(f"🔍 DEBUG: Quoted images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
+            elif embed and hasattr(embed, '$type') and embed.$type == 'app.bsky.embed.recordWithMedia':
+                print("🔍 DEBUG: Found recordWithMedia embed")
+                if hasattr(embed, 'media') and hasattr(embed.media, 'images') and embed.media.images:
+                    image_data_list = embed.media.images
+                    print(f"🔍 DEBUG: RecordWithMedia images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
             else:
-                print("DEBUG: No images found in post")
+                print("🔍 DEBUG: No images found in post")
                 continue
 
             if uri in fuwamoko_uris or author == HANDLE or is_quoted_repost(post) or post_id in reposted_uris:
@@ -289,8 +305,8 @@ def run_once():
 
             if image_data_list and is_mutual_follow(client, author):
                 image_data = image_data_list[0]
-                print(f"DEBUG: image_data={image_data}")
-                print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
+                print(f"🔍 DEBUG: image_data={image_data.__dict__}")
+                print(f"🔍 DEBUG: image_data keys={list(image_data.__dict__.keys())}")
                 if process_image(image_data, text, client=client, post=post) and random.random() < 0.5:
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
