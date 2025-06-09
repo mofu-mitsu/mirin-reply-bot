@@ -118,7 +118,7 @@ def is_quoted_repost(post):
         if hasattr(post.post.record, 'embed') and post.post.record.embed:
             embed = post.post.record.embed
             if hasattr(embed, 'record'):
-                print(f"📌 引用リポスト検出: URI={embed.record.uri}")
+                print(f"📌❓ 引用リポスト検出: URI={embed.record.uri}")
                 return True
         return False
     except Exception as e:
@@ -142,9 +142,9 @@ def detect_language(client, handle):
     try:
         profile = client.app.bsky.actor.get_profile(params={"actor": handle})
         bio = profile.display_name.lower() + " " + getattr(profile, "description", "").lower()
-        if any(kw in bio for kw in ["日本語", "日本", "にほん"]):
+        if any(kw in bio for kw in ["Japanese", "Japan", "日本語", "にほん"]):
             return "ja"
-        elif any(kw in bio for kw in ["english", "us", "uk"]):
+        elif any(kw in bio for kw in ["English", "US", "UK", "english", "us", "uk"]):
             return "en"
         return "ja"  # デフォルト
     except Exception as e:
@@ -202,11 +202,8 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        session = client.com.atproto.server.create_session({
-            'identifier': HANDLE,
-            'password': APP_PASSWORD
-        })
-        access_jwt = session.access_jwt  # トークン取得
+        client.login(HANDLE, APP_PASSWORD)  # ログイン
+        access_jwt = client._session.access.jwt  # トークン取得
         print(f"📨💖 ふわもこ共感Bot起動中… トークン取得: {access_jwt[:10]}...")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
