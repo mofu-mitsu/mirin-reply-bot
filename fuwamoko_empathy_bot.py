@@ -17,7 +17,6 @@ from collections import Counter
 from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
-from atproto.models.com.atproto.sync.get_blob import Params as GetBlobParams  # ★追加★
 
 # 🔽 🧠 Transformers用設定
 MODEL_NAME = "cyberagent/open-calm-1b"  # モデル名
@@ -57,8 +56,7 @@ def get_blob_image_url(cid):
 
 def download_image_from_blob(cid, client, repo):
     try:
-        params = GetBlobParams(repo=repo, cid=cid)  # ★修正★ paramsを構築
-        blob_response = client.com.atproto.sync.get_blob(params=params)  # ★修正★ paramsで呼び出し
+        blob_response = client.com.atproto.sync.get_blob(params={'repo': repo, 'cid': cid})  # ★修正★ paramsを辞書形式
         return Image.open(BytesIO(blob_response))
     except Exception as e:
         print(f"⚠️ 画像ダウンロード失敗: {e}")
