@@ -19,6 +19,11 @@ MODEL_NAME = "cyberagent/open-calm-1b"  # モデル名
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
+# 環境変数読み込み
+load_dotenv()  # .envファイルから読み込み（なくてもSecretsで動作）
+HANDLE = os.environ.get("HANDLE")
+APP_PASSWORD = os.environ.get("APP_PASSWORD")
+
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = f"{context}: 画像: {image_url}, テキスト: {text}, 言語: {lang}"
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
@@ -123,10 +128,10 @@ def save_fuwamoko_uri(uri):
         print(f"⏩ 履歴保存スキップ（1日1回）: {normalized_uri}")
         return
     try:
-        with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
-            f.write(f"{normalized_uri}|{datetime.now(timezone.utc).isoformat()}\n")
-        fuwamoko_uris[normalized_uri] = datetime.now(timezone.utc)
-        print(f"💾 履歴保存: {normalized_uri}")
+      with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
+          f.write(f"{normalized_uri}|{datetime.now(timezone.utc).isoformat()}\n")
+      fuwamoko_uris[normalized_uri] = datetime.now(timezone.utc)
+      print(f"💾 履歴保存: {normalized_uri}")
     except Exception as e:
         print(f"⚠️ 履歴保存エラー: {e}")
 
