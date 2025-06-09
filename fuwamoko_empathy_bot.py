@@ -56,11 +56,17 @@ def is_mutual_follow(client, handle):
 
 def get_image_url(image_data):
     try:
-        # dict型または属性アクセスで取得
-        if isinstance(image_data, dict):
-            return image_data.get('thumbnail') or image_data.get('url') or image_data.get('image', {}).get('url', '') or ""
-        else:
-            return getattr(image_data, 'thumbnail', '') or getattr(image_data, 'url', '') or getattr(image_data, 'image', {}).get('url', '')
+        # BlobRefの場合、image.ref.linkからCIDを取得
+        if hasattr(image_data, 'image') and hasattr(image_data.image, 'ref') and hasattr(image_data.image.ref, 'link'):
+            cid = image_data.image.ref.link
+            return f"https://cdn.bsky.app/img/feed_full/{cid}"
+        # dict型の場合（念のため）
+        elif isinstance(image_data, dict):
+            ref = image_data.get('image', {}).get('ref', {})
+            cid = ref.get('link') if isinstance(ref, dict) else getattr(ref, 'link', '')
+            if cid:
+                return f"https://cdn.bsky.app/img/feed_full/{cid}"
+        return ""
     except Exception as e:
         print(f"⚠️ get_image_urlエラー: {e}")
         return ""
