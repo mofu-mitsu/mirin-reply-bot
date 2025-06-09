@@ -50,9 +50,13 @@ def is_mutual_follow(client, handle):
         print(f"⚠️ 相互フォロー判定エラー: {e}")
         return False
 
-def process_image(image_url):
-    # 簡易実装：画像URLをテキストとして扱う（本格的には画像処理ライブラリ必要）
-    return "ふわふわ" in image_url or "もこもこ" in image_url or "かわいい" in image_url  # 仮判定
+def process_image(image_data, text=""):
+    # image_dataからURLを取得（thumbnailやurlを試す）
+    image_url = getattr(image_data, 'thumbnail', getattr(image_data, 'url', ''))
+    # 投稿テキストも考慮
+    check_text = image_url + " " + text.lower()
+    keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
+    return any(keyword in check_text for keyword in keywords)
 
 def is_quoted_repost(post):
     try:
@@ -152,7 +156,8 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        for post in feed:
+        # 最新投稿1件だけ処理
+        for post in sorted(feed, key=lambda x: x.post.indexedAt, reverse=True)[:1]:
             time.sleep(random.uniform(5, 15))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
@@ -165,9 +170,9 @@ def run_once():
 
             if embed and hasattr(embed, 'images') and is_mutual_follow(client, author):
                 image_data = embed.images[0]
-                print(f"DEBUG: Image data = {image_data.__dict__}")  # 利用可能な属性を確認
+                print(f"DEBUG: Image data = {image_data.__dict__}")
                 image_url = getattr(image_data, 'thumbnail', getattr(image_data, 'url', ''))
-                if process_image(image_url) and random.random() < 0.5:  # 50%確率
+                if process_image(image_data, text) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply(image_url, text, lang=lang)
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
@@ -192,7 +197,7 @@ def run_once():
 
     except InvokeTimeoutError:
         print("⚠️ APIタイムアウト！")
-
+        
 if __name__ == "__main__":
     load_dotenv()
     run_once()
