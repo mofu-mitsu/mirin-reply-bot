@@ -41,14 +41,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
 def is_mutual_follow(client, handle):
     try:
-        # 相手のフォロー一覧を取得（相手が誰をフォローしているか）
         their_follows = client.app.bsky.graph.get_follows(params={"actor": handle, "limit": 100})
         their_following = [f.handle for f in their_follows.follows]
-
-        # 自分（HANDLE）のフォロー一覧を取得
         my_follows = client.app.bsky.graph.get_follows(params={"actor": os.environ.get("HANDLE"), "limit": 100})
         my_following = [f.handle for f in my_follows.follows]
-
         return os.environ.get("HANDLE") in their_following and handle in my_following
     except Exception as e:
         print(f"⚠️ 相互フォロー判定エラー: {e}")
@@ -56,16 +52,33 @@ def is_mutual_follow(client, handle):
 
 def get_image_url(image_data):
     try:
+        cid = None
         # BlobRefの場合、image.ref.linkからCIDを取得
         if hasattr(image_data, 'image') and hasattr(image_data.image, 'ref') and hasattr(image_data.image.ref, 'link'):
             cid = image_data.image.ref.link
-            return f"https://cdn.bsky.app/img/feed_thumbnail/{cid}"  # feed_full → feed_thumbnail
         # dict型の場合（念のため）
         elif isinstance(image_data, dict):
             ref = image_data.get('image', {}).get('ref', {})
             cid = ref.get('link') if isinstance(ref, dict) else getattr(ref, 'link', '')
-            if cid:
-                return f"https://cdn.bsky.app/img/feed_thumbnail/{cid}"
+        
+        if not cid:
+            print("⚠️ CIDが見つかりません")
+            return ""
+
+        # 試すURLリスト
+        paths = ["feed_thumbnail", "feed_full", "avatar"]
+        for path in paths:
+            url = f"https://cdn.bsky.app/img/{path}/{cid}"
+            print(f"✅ 試行中URL: {url}")
+            try:
+                res = requests.head(url, timeout=3)
+                if res.status_code == 200:
+                    return url
+            except requests.RequestException as e:
+                print(f"⚠️ URLチェックエラー ({path}): {e}")
+                continue
+
+        print("⚠️ すべてのURLで画像が見つかりません")
         return ""
     except Exception as e:
         print(f"⚠️ get_image_urlエラー: {e}")
@@ -93,13 +106,17 @@ def process_image(image_data, text=""):
             if (r > 200 and g > 200 and b > 200) or (r > 200 and g < 150 and b < 150):
                 fluffy_count += 1
         if fluffy_count >= 2:
+            print("🎉 ふわもこ色検出！")
             return True
 
         # 文字列マッチングのバックアップ
         check_text = image_url + " " + text.lower()
         keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
-        return any(keyword in check_text for keyword in keywords)
+        if any(keyword in check_text for keyword in keywords):
+            print("🎉 ふわもこキーワード検出！")
+            return True
 
+        return False
     except Exception as e:
         print(f"⚠️ 画像解析エラー: {e}")
         return False
