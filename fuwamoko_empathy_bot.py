@@ -57,25 +57,15 @@ def get_blob_image_url(cid):
 
 def download_image_from_blob(cid, client, repo):
     try:
-        print(f"DEBUG: Creating GetBlobParams with repo={repo}, cid={cid}")  # ★デバッグ★
-        params_instance = GetBlobParams(repo=repo, cid=cid)
+        print(f"DEBUG: Creating GetBlobParams with did={repo}, cid={cid}")  # ★デバッグ★
+        params_instance = GetBlobParams(did=repo, cid=cid)  # ★did=を使用★
         print(f"DEBUG: GetBlobParams instance created: {params_instance}")  # ★デバッグ★
-        
-        # アプローチ1: GetBlobParamsを直接渡す（推奨）
-        blob_response = client.com.atproto.sync.get_blob(params_instance)  # ★params=で渡す★
+        blob_response = client.com.atproto.sync.get_blob(params=params_instance)  # ★params=で渡す★
         print("DEBUG: Blob response received")  # ★デバッグ★
         return Image.open(BytesIO(blob_response))
     except Exception as e:
         print(f"⚠️ 画像ダウンロード失敗: {e}")
-        # アプローチ2: エラーならto_dict()で試す
-        try:
-            print("DEBUG: Fallback to params=to_dict()")  # ★デバッグ★
-            blob_response = client.com.atproto.sync.get_blob(params=params_instance.to_dict())  # ★to_dict()で辞書渡し★
-            print("DEBUG: Blob response received (fallback)")  # ★デバッグ★
-            return Image.open(BytesIO(blob_response))
-        except Exception as e2:
-            print(f"⚠️ 画像ダウンロード失敗（フォールバック）: {e2}")
-            return None
+        return None
 
 def process_image(image_data, text="", client=None, post=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
