@@ -16,8 +16,6 @@ from collections import Counter
 # 🔽 📡 atproto関連
 from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
-# ★★★ 変更点1: CreateSessionData を Data に変更 ★★★
-from atproto_client.models.com.atproto.server.create_session import Data # ここを Data に変更！
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
@@ -29,6 +27,7 @@ model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 load_dotenv()  # .envファイルから読み込み（なくてもSecretsで動作）
 HANDLE = os.environ.get("HANDLE")
 APP_PASSWORD = os.environ.get("APP_PASSWORD")
+SESSION_FILE = "session_string.txt"  # セッション文字列保存用
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = f"{context}: 画像: {image_url}, テキスト: {text}, 言語: {lang}"
@@ -191,29 +190,51 @@ def load_fuwamoko_uris():
 def save_fuwamoko_uri(uri):
     normalized_uri = normalize_uri(uri)
     if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).days < 1:
-        print(f"⏩ 履歴保存スキップ（1日1回）: {normalized_uri}")
+        print(f"⩗ 履歴保存スキップ（1日1回）: {normalized_uri}")
         return
     try:
         with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
             f.write(f"{normalized_uri}|{datetime.now(timezone.utc).isoformat()}\n")
         fuwamoko_uris[normalized_uri] = datetime.now(timezone.utc)
-        print(f"💾 履歴保存: {normalized_uri}")
+        print(f"💾 Saved history: uri={normalized_uri}")
     except Exception as e:
-        print(f"⚠️ 履歴保存エラー: {e}")
+        print(f"⚠️ History save error: {e}")
+
+def load_session_string():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'r', encoding='utf-8') as f:
+                session_str = f.read().strip()
+                print(f"✅ Loaded session string: {session_str[:10]}...")
+                return session_str
+        except Exception as e:
+            print(f"⚠️ Failed to load session string: {str(e)}")
+    return None
+
+def save_session_string(session_str):
+    try:
+        with open(SESSION_FILE, 'w', encoding='utf-8') as f:
+            f.write(session_str)
+        print(f"💾 Saved session string: {session_str[:10]}...")
+    except Exception as e:
+        print(f"⚠️ Failed to save session string: {str(e)}")
 
 def run_once():
     try:
         client = Client()
         # ★★★ ログイン処理 ★★★
-        session = client.com.atproto.server.create_session(
-            # ★★★ 変更点2: Data クラスを使う ★★★
-            data=Data(identifier=HANDLE, password=APP_PASSWORD)
-        )
-        # ★★★ 変更点3: access_jwt は snake_case で取得 ★★★
-        access_jwt = session.access_jwt  # camelCaseではなくsnake_case！
-        client.set_session(session)  # 認証を紐付け
+        session_str = load_session_string()
+        if session_str:
+            client.login(session_string=session_str)
+            print(f"📨💖 ふわもこ共感Bot起動！ セッション再利用: {session_str[:10]}...")
+        else:
+            client.login(login=HANDLE, password=APP_PASSWORD)
+            session_str = client.export_session_string()
+            save_session_string(session_str)
+            print(f"📨💖 ふわもこ共感Bot起動！ 新規セッション: {session_str[:10]}...")
 
-        print(f"📨💖 ふわもこ共感Bot起動！ トークン取得: {access_jwt[:10]}...")
+        access_jwt = client._auth_token  # 非公開APIでトークン取得
+        print(f"🔐 トークン取得: {access_jwt[:10]}...")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
         feed = timeline.feed
