@@ -1,11 +1,16 @@
-atproto
-python-dotenv
-requests
+# ─── 基本 ───
+atproto==0.0.61
+python-dotenv==1.0.1
+requests>=2.31.0
+multiformats==0.3.1.post4  # ← これが正解！
 
-atproto
+# ─── リプ系Bot用（AI等） ───
 transformers==4.36.2
 torch==2.0.1
-psutil==5.9.8
 sentencepiece==0.2.0
-python-dotenv
-accelerate
+accelerate==0.21.0
+psutil==5.9.8  # みつきの他Bot用に必須
+
+# ─── constraints（参考までに、requirementsに直接入れてもOK） ───
+typing-extensions>=4.5.0,<5.0.0
+numpy>=1.17,<2.0
