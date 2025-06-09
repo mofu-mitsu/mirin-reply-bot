@@ -35,6 +35,7 @@ jobs:
           pip install torch==2.0.1 transformers==4.36.2 psutil==5.9.8 sentencepiece==0.2.0
           pip install -U accelerate
           pip install atproto requests dotenv  # open-calm-1b用追加
+          pip install pillow requests          # ←これを追加！
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Run Fuwamoko Empathy Bot
