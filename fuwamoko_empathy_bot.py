@@ -238,6 +238,22 @@ def run_once():
             save_session_string(session_str)
             print(f"📨💖 ふわもこ共感Bot起動！ 新規セッション: {session_str[:10]}...")
 
+        # 特定投稿を直接取得
+        try:
+            thread = client.app.bsky.feed.get_post_thread(params={"uri": "at://mofumitsukoubou.bsky.social/app.bsky.feed.post/3lr6hwd3a2c2k", "depth": 2})
+            thread_dict = {
+                "uri": thread.thread.uri,
+                "post": {
+                    "author": thread.thread.post.author.handle,
+                    "did": thread.thread.post.author.did,
+                    "text": getattr(thread.thread.post.record, "text", ""),
+                    "embed": getattr(thread.thread.post.record, "embed", None).__dict__ if getattr(thread.thread.post.record, "embed", None) else None
+                }
+            }
+            print(f"🔍 DEBUG: Specific Thread JSON={json.dumps(thread_dict, default=str, ensure_ascii=False, indent=2)}")
+        except Exception as e:
+            print(f"⚠️ Specific get_post_threadエラー: {e}")
+
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
         feed = timeline.feed
 
@@ -247,7 +263,6 @@ def run_once():
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
             print(f"DEBUG: Post author={post.post.author.handle}, URI={post.post.uri}")
-            # 投稿のJSON構造を詳細ログ
             post_dict = {
                 "uri": post.post.uri,
                 "cid": post.post.cid,
@@ -257,8 +272,7 @@ def run_once():
                 "embed": getattr(post.post.record, "embed", None).__dict__ if getattr(post.post.record, "embed", None) else None
             }
             print(f"🔍 DEBUG: Post JSON={json.dumps(post_dict, default=str, ensure_ascii=False, indent=2)}")
-            
-            # get_post_threadで投稿詳細取得
+
             try:
                 thread = client.app.bsky.feed.get_post_thread(params={"uri": post.post.uri, "depth": 2})
                 thread_dict = {
@@ -291,7 +305,7 @@ def run_once():
                 image_data_list = embed.record.embed.images
                 print(f"🔍 DEBUG: Quoted post author={embed.record.author.handle}, DID={embed.record.author.did}")
                 print(f"🔍 DEBUG: Quoted images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
-            elif embed and hasattr(embed, '$type') and embed.$type == 'app.bsky.embed.recordWithMedia':
+            elif embed and embed.get('$type') == 'app.bsky.embed.recordWithMedia':
                 print("🔍 DEBUG: Found recordWithMedia embed")
                 if hasattr(embed, 'media') and hasattr(embed.media, 'images') and embed.media.images:
                     image_data_list = embed.media.images
