@@ -2,37 +2,33 @@
 from datetime import datetime, timezone
 import os
 import json
-import requests
 import time
 import random
 
 # 🔽 🌱 外部ライブラリ
 from dotenv import load_dotenv
-import base64
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # 🔽 📡 atproto関連
 from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
 
-# 🔽 🧠 open-calm-1b用
-HF_API_URL = "https://api-inference.huggingface.co/models/open-calm-1b"
-HF_API_TOKEN = os.getenv("HF_API_TOKEN")
+# 🔽 🧠 Transformers用設定
+MODEL_NAME = "open-calm/open-calm-1b"  # モデル名
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-    payload = {
-        "inputs": f"{context}: 画像: {image_url}, テキスト: {text}, 言語: {lang}",
-        "parameters": {"max_length": 50}
-    }
-    response = requests.post(HF_API_URL, headers=headers, json=payload)
-    if response.status_code == 200:
-        return response.json()[0]["generated_text"]
-    return "わぁっ♡ ふわもこすぎる〜！みりん、癒されたよ…💕" if lang == "ja" else random.choice([
+    prompt = f"{context}: 画像: {image_url}, テキスト: {text}, 言語: {lang}"
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
+    outputs = model.generate(**inputs, max_length=50, num_return_sequences=1)
+    reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return reply if reply else ("わぁっ♡ ふわもこすぎる〜！みりん、癒されたよ…💕" if lang == "ja" else random.choice([
         "Wow! So fluffy~ Mirin loves it! 💕",
         "Oh my! This is super cute~ Mirin is happy! 🥰",
         "Amazing! Fluffy vibes~ Mirin is healed! 🌸"
-    ])
+    ]))
 
 def is_mutual_follow(client, handle):
     try:
@@ -45,12 +41,8 @@ def is_mutual_follow(client, handle):
         return False
 
 def process_image(image_url):
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-    response = requests.post(HF_API_URL, headers=headers, data=image_url)
-    if response.status_code == 200:
-        caption = response.json()[0]["generated_text"].lower()
-        return "ふわふわ" in caption or "もこもこ" in caption or "かわいい" in caption
-    return False
+    # 簡易実装：画像URLをテキストとして扱う（本格的には画像処理ライブラリ必要）
+    return "ふわふわ" in image_url or "もこもこ" in image_url or "かわいい" in image_url  # 仮判定
 
 def is_quoted_repost(post):
     try:
@@ -90,7 +82,6 @@ def detect_language(client, handle):
         print(f"⚠️ 言語判定エラー: {e}")
         return "ja"
 
-# 🔹 ふわもこ共感Botの履歴管理
 FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 fuwamoko_uris = {}
 
