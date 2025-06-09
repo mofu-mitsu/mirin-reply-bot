@@ -4,10 +4,14 @@ import os
 import json
 import time
 import random
+import requests
+from io import BytesIO
 
 # 🔽 🌱 外部ライブラリ
 from dotenv import load_dotenv
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from PIL import Image
+from collections import Counter
 
 # 🔽 📡 atproto関連
 from atproto import Client, models
@@ -51,12 +55,39 @@ def is_mutual_follow(client, handle):
         return False
 
 def process_image(image_data, text=""):
-    # image_dataからURLを取得（thumbnailやurlを試す）
+    # 画像URLを取得（thumbnailまたはurlから）
     image_url = getattr(image_data, 'thumbnail', getattr(image_data, 'url', ''))
-    # 投稿テキストも考慮
-    check_text = image_url + " " + text.lower()
-    keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
-    return any(keyword in check_text for keyword in keywords)
+    if not image_url:
+        print("⚠️ 画像URLが見つかりません")
+        return False
+
+    try:
+        # 画像をダウンロード
+        response = requests.get(image_url, timeout=10)
+        response.raise_for_status()
+        img = Image.open(BytesIO(response.content)).resize((50, 50))  # 簡略化して解析
+        colors = img.getdata()
+        color_counts = Counter(colors)
+        common_colors = color_counts.most_common(5)
+
+        # 淡い色（白、ピンク系）が多いかチェック
+        fluffy_count = 0
+        for color in common_colors:
+            r, g, b = color[0][:3]
+            # 白（R,G,B > 200）またはピンク（R>200, G,B<150）
+            if (r > 200 and g > 200 and b > 200) or (r > 200 and g < 150 and b < 150):
+                fluffy_count += 1
+        if fluffy_count >= 2:  # 2色以上がふわもこっぽい色ならTrue
+            return True
+
+        # 文字列マッチングのバックアップ
+        check_text = image_url + " " + text.lower()
+        keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
+        return any(keyword in check_text for keyword in keywords)
+
+    except Exception as e:
+        print(f"⚠️ 画像解析エラー: {e}")
+        return False
 
 def is_quoted_repost(post):
     try:
@@ -156,8 +187,9 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        # 最新投稿1件だけ処理（indexedAt → indexed_at）
+        # 最新投稿1件だけ処理
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
+            print(f"DEBUG: Post indexed_at = {post.post.indexed_at}")
             time.sleep(random.uniform(5, 15))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
@@ -197,7 +229,7 @@ def run_once():
 
     except InvokeTimeoutError:
         print("⚠️ APIタイムアウト！")
-        
+
 if __name__ == "__main__":
     load_dotenv()
     run_once()
