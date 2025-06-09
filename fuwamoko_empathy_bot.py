@@ -17,7 +17,6 @@ from collections import Counter
 from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
-from atproto_client.models.com.atproto.sync.get_blob import Params as GetBlobParams  # ★必須★
 
 # 🔽 🧠 Transformers用設定
 MODEL_NAME = "cyberagent/open-calm-1b"  # モデル名
@@ -53,18 +52,19 @@ def is_mutual_follow(client, handle):
         return False
 
 def get_blob_image_url(cid):
-    return f"https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={cid}"
+    # Bluesky CDNから直接画像を取得
+    return f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg"  # @jpegでMIMEタイプ指定
 
-def download_image_from_blob(cid, client, repo):
+def download_image_from_blob(cid, client, repo=None):  # repoは不要だが互換性で残す
     try:
-        print(f"DEBUG: Creating GetBlobParams with did={repo}, cid={cid}")  # ★デバッグ★
-        params_instance = GetBlobParams(did=repo, cid=cid)  # ★did=を使用★
-        print(f"DEBUG: GetBlobParams instance created: {params_instance}")  # ★デバッグ★
-        blob_response = client.com.atproto.sync.get_blob(params=params_instance)  # ★params=で渡す★
-        print("DEBUG: Blob response received")  # ★デバッグ★
-        return Image.open(BytesIO(blob_response))
+        image_url = get_blob_image_url(cid)
+        print(f"DEBUG: Downloading image from CDN: {image_url}")  # ★デバッグ★
+        response = requests.get(image_url, stream=True, timeout=10)  # タイムアウト設定
+        response.raise_for_status()  # HTTPエラー検知
+        print("DEBUG: Image downloaded from CDN successfully")  # ★デバッグ★
+        return Image.open(BytesIO(response.content))
     except Exception as e:
-        print(f"⚠️ 画像ダウンロード失敗: {e}")
+        print(f"⚠️ 画像ダウンロード失敗（CDN）: {e}")
         return None
 
 def process_image(image_data, text="", client=None, post=None):
@@ -76,9 +76,7 @@ def process_image(image_data, text="", client=None, post=None):
     print(f"DEBUG: CID={cid}")
 
     try:
-        repo = post.post.author.did
-        print(f"DEBUG: Repo (DID)={repo}")  # ★デバッグ★
-        img = download_image_from_blob(cid, client, repo)
+        img = download_image_from_blob(cid, client)  # repoは不要
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -234,18 +232,30 @@ def run_once():
 
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
-            time.sleep(random.uniform(2, 5))
+            time.sleep(random.uniform(5, 10))  # インデックス遅延対策
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
             post_id = uri.split('/')[-1]
             author = post.post.author.handle
             embed = getattr(post.post.record, "embed", None)
 
+            # 画像データの取得
+            image_data_list = []
+            if embed and hasattr(embed, 'images') and embed.images:
+                print("DEBUG: Found direct embedded images")
+                image_data_list = embed.images
+            elif embed and hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images') and embed.record.embed.images:
+                print("DEBUG: Found embedded images in quoted post")
+                image_data_list = embed.record.embed.images
+            else:
+                print("DEBUG: No images found in post")
+                continue
+
             if uri in fuwamoko_uris or author == HANDLE or is_quoted_repost(post) or post_id in reposted_uris:
                 continue
 
-            if embed and hasattr(embed, 'images') and is_mutual_follow(client, author):
-                image_data = embed.images[0]
+            if image_data_list and is_mutual_follow(client, author):
+                image_data = image_data_list[0]  # 最初の画像のみ
                 print(f"DEBUG: image_data={image_data}")
                 print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
                 if process_image(image_data, text, client=client, post=post) and random.random() < 0.5:
