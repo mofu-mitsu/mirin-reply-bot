@@ -56,7 +56,7 @@ def get_blob_image_url(cid):
 
 def download_image_from_blob(cid, client):
     try:
-        access_token = client._session.auth.get_jwt()  # 非公開APIでトークン取得
+        access_token = client._session.access_jwt  # ★修正★ snake_caseでトークン取得
         if not access_token:
             print("⚠️ アクセストークンが取得できませんでした")
             return None
@@ -81,19 +81,16 @@ def process_image(image_data, text="", client=None):
     print(f"DEBUG: CID={cid}")
 
     try:
-        # Blobから画像を取得
         img = download_image_from_blob(cid, client)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
 
-        # Pillowで解析
         img = img.resize((50, 50))
         colors = img.getdata()
         color_counts = Counter(colors)
         common_colors = color_counts.most_common(5)
 
-        # 淡い色（白、ピンク系）が多いかチェック
         fluffy_count = 0
         for color in common_colors:
             r, g, b = color[0][:3]
@@ -103,7 +100,6 @@ def process_image(image_data, text="", client=None):
             print("🎉 ふわもこ色検出！")
             return True
 
-        # 文字列マッチングのバックアップ
         check_text = text.lower()
         keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
         if any(keyword in check_text for keyword in keywords):
@@ -148,7 +144,7 @@ def detect_language(client, handle):
             return "ja"
         elif any(kw in bio for kw in ["english", "us", "uk"]):
             return "en"
-        return "ja"  # デフォルト
+        return "ja"
     except Exception as e:
         print(f"⚠️ 言語判定エラー: {e}")
         return "ja"
@@ -240,7 +236,6 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        # 最新投稿1件だけ処理
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
             time.sleep(random.uniform(2, 5))
