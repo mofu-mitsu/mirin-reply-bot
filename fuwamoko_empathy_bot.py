@@ -133,10 +133,10 @@ def save_fuwamoko_uri(uri):
         print(f"⏩ 履歴保存スキップ（1日1回）: {normalized_uri}")
         return
     try:
-      with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
-          f.write(f"{normalized_uri}|{datetime.now(timezone.utc).isoformat()}\n")
-      fuwamoko_uris[normalized_uri] = datetime.now(timezone.utc)
-      print(f"💾 履歴保存: {normalized_uri}")
+        with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
+            f.write(f"{normalized_uri}|{datetime.now(timezone.utc).isoformat()}\n")
+        fuwamoko_uris[normalized_uri] = datetime.now(timezone.utc)
+        print(f"💾 履歴保存: {normalized_uri}")
     except Exception as e:
         print(f"⚠️ 履歴保存エラー: {e}")
 
@@ -163,11 +163,11 @@ def run_once():
             if uri in fuwamoko_uris or author == HANDLE or is_quoted_repost(post) or post_id in reposted_uris:
                 continue
 
-       if embed and hasattr(embed, 'images') and is_mutual_follow(client, author):
-    image_data = embed.images[0]
-    print(f"DEBUG: Image data = {image_data.__dict__}")  # 利用可能な属性を確認
-    image_url = image_data.thumbnail  # thumbnail を試す
-    if process_image(image_url) and random.random() < 0.5:  # 50%確率
+            if embed and hasattr(embed, 'images') and is_mutual_follow(client, author):
+                image_data = embed.images[0]
+                print(f"DEBUG: Image data = {image_data.__dict__}")  # 利用可能な属性を確認
+                image_url = getattr(image_data, 'thumbnail', getattr(image_data, 'url', ''))
+                if process_image(image_url) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply(image_url, text, lang=lang)
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
@@ -192,7 +192,7 @@ def run_once():
 
     except InvokeTimeoutError:
         print("⚠️ APIタイムアウト！")
-        
+
 if __name__ == "__main__":
     load_dotenv()
     run_once()
