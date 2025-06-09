@@ -156,8 +156,8 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        # 最新投稿1件だけ処理
-        for post in sorted(feed, key=lambda x: x.post.indexedAt, reverse=True)[:1]:
+        # 最新投稿1件だけ処理（indexedAt → indexed_at）
+        for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             time.sleep(random.uniform(5, 15))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
