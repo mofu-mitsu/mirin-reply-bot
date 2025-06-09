@@ -59,13 +59,13 @@ def get_image_url(image_data):
         # BlobRefの場合、image.ref.linkからCIDを取得
         if hasattr(image_data, 'image') and hasattr(image_data.image, 'ref') and hasattr(image_data.image.ref, 'link'):
             cid = image_data.image.ref.link
-            return f"https://cdn.bsky.app/img/feed_full/{cid}"
+            return f"https://cdn.bsky.app/img/feed_thumbnail/{cid}"  # feed_full → feed_thumbnail
         # dict型の場合（念のため）
         elif isinstance(image_data, dict):
             ref = image_data.get('image', {}).get('ref', {})
             cid = ref.get('link') if isinstance(ref, dict) else getattr(ref, 'link', '')
             if cid:
-                return f"https://cdn.bsky.app/img/feed_full/{cid}"
+                return f"https://cdn.bsky.app/img/feed_thumbnail/{cid}"
         return ""
     except Exception as e:
         print(f"⚠️ get_image_urlエラー: {e}")
@@ -194,7 +194,7 @@ def run_once():
     try:
         client = Client()
         client.login(HANDLE, APP_PASSWORD)
-        print("📨 ふわもこ共感Bot起動中…")
+        print("📨💖 ふわもこ共感Bot起動中…")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
         feed = timeline.feed
@@ -220,6 +220,7 @@ def run_once():
                 print(f"DEBUG: image_data = {image_data}")
                 print(f"DEBUG: image_data keys = {getattr(image_data, '__dict__', 'not a dict')}")
                 image_url = get_image_url(image_data)
+                print(f"DEBUG: image_url = {image_url}")
                 if process_image(image_data, text) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply(image_url, text, lang=lang)
