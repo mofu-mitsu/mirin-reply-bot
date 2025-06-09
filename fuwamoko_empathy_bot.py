@@ -54,25 +54,15 @@ def is_mutual_follow(client, handle):
 def get_blob_image_url(cid):
     return f"https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={cid}"
 
-def download_image_from_blob(cid, client):
+def download_image_from_blob(cid, client, repo):
     try:
-        access_token = client._session.access_jwt  # ★修正★ snake_caseでトークン取得
-        if not access_token:
-            print("⚠️ アクセストークンが取得できませんでした")
-            return None
-
-        url = get_blob_image_url(cid)
-        headers = {
-            "Authorization": f"Bearer {access_token}"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return Image.open(BytesIO(response.content))
+        blob_response = client.com.atproto.sync.get_blob(repo=repo, cid=cid)  # ★修正★ repoとcidを指定
+        return Image.open(BytesIO(blob_response))
     except Exception as e:
         print(f"⚠️ 画像ダウンロード失敗: {e}")
         return None
 
-def process_image(image_data, text="", client=None):
+def process_image(image_data, text="", client=None, post=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
         print("⚠️ 画像CIDが見つかりません")
         return False
@@ -81,7 +71,8 @@ def process_image(image_data, text="", client=None):
     print(f"DEBUG: CID={cid}")
 
     try:
-        img = download_image_from_blob(cid, client)
+        repo = post.post.author.did  # ★追加★ 投稿者のDIDを取得
+        img = download_image_from_blob(cid, client, repo)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -252,7 +243,7 @@ def run_once():
                 image_data = embed.images[0]
                 print(f"DEBUG: image_data={image_data}")
                 print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
-                if process_image(image_data, text, client=client) and random.random() < 0.5:
+                if process_image(image_data, text, client=client, post=post) and random.random() < 0.5:
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
