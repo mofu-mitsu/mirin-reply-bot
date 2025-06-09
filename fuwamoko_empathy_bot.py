@@ -70,7 +70,7 @@ def download_image_from_blob(cid, access_token):
         print(f"⚠️ 画像ダウンロード失敗: {e}")
         return None
 
-def process_image(image_data, text="", client=None, access_token=None):
+def process_image(image_data, text="", access_token=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
         print("⚠️ 画像CIDが見つかりません")
         return False
@@ -140,7 +140,7 @@ def load_reposted_uris_for_check():
 
 def detect_language(client, handle):
     try:
-        profile = client.app.bsky.actor.getProfile(actor=handle)
+        profile = client.app.bsky.actor.get_profile(params={"actor": handle})
         bio = profile.display_name.lower() + " " + getattr(profile, "description", "").lower()
         if any(kw in bio for kw in ["日本語", "日本", "にほん"]):
             return "ja"
@@ -202,9 +202,11 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        session = client.login(HANDLE, APP_PASSWORD)
-        access_jwt = session['accessJwt']  # ログイン時トークン取得
-        print("📨💖 ふわもこ共感Bot起動中…")
+        session = client.com.atproto.server.create_session(
+            models.ComAtprotoServerCreateSession.Params(identifier=HANDLE, password=APP_PASSWORD)
+        )
+        access_jwt = session.access_jwt  # トークン取得
+        print(f"📨💖 ふわもこ共感Bot起動中… トークン取得: {access_jwt[:10]}...")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
         feed = timeline.feed
@@ -229,7 +231,7 @@ def run_once():
                 image_data = embed.images[0]
                 print(f"DEBUG: image_data = {image_data}")
                 print(f"DEBUG: image_data keys = {getattr(image_data, '__dict__', 'not a dict')}")
-                if process_image(image_data, text, client=client, access_token=access_jwt) and random.random() < 0.5:  # 50%確率
+                if process_image(image_data, text, access_token=access_jwt) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)  # image_url不要
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
