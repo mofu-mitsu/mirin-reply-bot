@@ -53,9 +53,16 @@ def is_mutual_follow(client, handle):
 def get_blob_image_url(cid):
     return f"https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={cid}"
 
-def download_image_from_blob(cid, access_token):
-    url = get_blob_image_url(cid)
+def download_image_from_blob(cid, client):
     try:
+        session_data = client.export_session()
+        access_token = session_data.get("accessJwt", None)
+
+        if not access_token:
+            print("⚠️ アクセストークンが取得できませんでした")
+            return None
+
+        url = get_blob_image_url(cid)
         headers = {
             "Authorization": f"Bearer {access_token}"
         }
@@ -75,10 +82,8 @@ def process_image(image_data, text="", client=None):
     print(f"DEBUG: CID = {cid}")
 
     try:
-        # トークン取得
-        access_token = client._session.accessJwt
         # Blobから画像を取得
-        img = download_image_from_blob(cid, access_token)
+        img = download_image_from_blob(cid, client)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -120,20 +125,20 @@ def is_quoted_repost(post):
                 return True
         return False
     except Exception as e:
-        print(f"⚠️ 引用リポストチェックエラー：{e}")
+        print(f"⚠️ 引用リポストチェックエラー: {e}")
         return False
 
 def load_reposted_uris_for_check():
     REPOSTED_FILE = "reposted_uris.txt"
     if os.path.exists(REPOSTED_FILE):
         try:
-            with open(REPOSTED_FILE, "r", encoding="utf-8") as f:
+            with open(REPOSTED_FILE, 'r', encoding='utf-8') as f:
                 uris = set(line.strip() for line in f if line.strip())
-                print(f"✅ 読み込んだ reposted_uris（チェック用）：{len(uris)}件")
+                print(f"✅ 読み込んだ reposted_uris（チェック用）: {len(uris)}件")
                 return uris
         except Exception as e:
             print(f"⚠️ reposted_uris読み込みエラー: {e}")
-        return set()
+            return set()
     return set()
 
 def detect_language(client, handle):
