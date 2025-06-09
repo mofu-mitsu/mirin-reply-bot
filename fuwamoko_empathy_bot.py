@@ -50,51 +50,39 @@ def is_mutual_follow(client, handle):
         print(f"⚠️ 相互フォロー判定エラー: {e}")
         return False
 
-def get_image_url(image_data):
+def get_blob_image_url(cid):
+    return f"https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={cid}"
+
+def download_image_from_blob(cid, client):
+    url = get_blob_image_url(cid)
     try:
-        cid = None
-        # BlobRefの場合、image.ref.linkからCIDを取得
-        if hasattr(image_data, 'image') and hasattr(image_data.image, 'ref') and hasattr(image_data.image.ref, 'link'):
-            cid = image_data.image.ref.link
-        # dict型の場合（念のため）
-        elif isinstance(image_data, dict):
-            ref = image_data.get('image', {}).get('ref', {})
-            cid = ref.get('link') if isinstance(ref, dict) else getattr(ref, 'link', '')
-        
-        if not cid:
-            print("⚠️ CIDが見つかりません")
-            return ""
-
-        # 試すURLリスト
-        paths = ["feed_thumbnail", "feed_full", "avatar"]
-        for path in paths:
-            url = f"https://cdn.bsky.app/img/{path}/{cid}"
-            print(f"✅ 試行中URL: {url}")
-            try:
-                res = requests.head(url, timeout=3)
-                if res.status_code == 200:
-                    return url
-            except requests.RequestException as e:
-                print(f"⚠️ URLチェックエラー ({path}): {e}")
-                continue
-
-        print("⚠️ すべてのURLで画像が見つかりません")
-        return ""
+        headers = {
+            "Authorization": f"Bearer {client._access_token}"  # クライアントからトークン取得
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content))
     except Exception as e:
-        print(f"⚠️ get_image_urlエラー: {e}")
-        return ""
+        print(f"⚠️ 画像ダウンロード失敗: {e}")
+        return None
 
-def process_image(image_data, text=""):
-    image_url = get_image_url(image_data)
-    if not image_url:
-        print("⚠️ 画像URLが見つかりません")
+def process_image(image_data, text="", client=None):
+    if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
+        print("⚠️ 画像CIDが見つかりません")
         return False
 
+    cid = image_data.image.ref.link
+    print(f"DEBUG: CID = {cid}")
+
     try:
-        # 画像をダウンロードしてPillowで解析
-        response = requests.get(image_url, timeout=10)
-        response.raise_for_status()
-        img = Image.open(BytesIO(response.content)).resize((50, 50))
+        # Blobから画像を取得
+        img = download_image_from_blob(cid, client)
+        if img is None:
+            print("⚠️ 画像取得失敗")
+            return False
+
+        # Pillowで解析
+        img = img.resize((50, 50))
         colors = img.getdata()
         color_counts = Counter(colors)
         common_colors = color_counts.most_common(5)
@@ -110,7 +98,7 @@ def process_image(image_data, text=""):
             return True
 
         # 文字列マッチングのバックアップ
-        check_text = image_url + " " + text.lower()
+        check_text = text.lower()
         keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
         if any(keyword in check_text for keyword in keywords):
             print("🎉 ふわもこキーワード検出！")
@@ -236,11 +224,9 @@ def run_once():
                 image_data = embed.images[0]
                 print(f"DEBUG: image_data = {image_data}")
                 print(f"DEBUG: image_data keys = {getattr(image_data, '__dict__', 'not a dict')}")
-                image_url = get_image_url(image_data)
-                print(f"DEBUG: image_url = {image_url}")
-                if process_image(image_data, text) and random.random() < 0.5:  # 50%確率
+                if process_image(image_data, text, client=client) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
-                    reply_text = open_calm_reply(image_url, text, lang=lang)
+                    reply_text = open_calm_reply("", text, lang=lang)  # image_url不要
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
 
                     reply_ref = AppBskyFeedPost.ReplyRef(
