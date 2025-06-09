@@ -54,8 +54,9 @@ def is_mutual_follow(client, handle):
 def get_blob_image_url(cid):
     return f"https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={cid}"
 
-def download_image_from_blob(cid, access_token):
+def download_image_from_blob(cid, client):
     try:
+        access_token = client._session.auth.get_jwt()  # 非公開APIでトークン取得
         if not access_token:
             print("⚠️ アクセストークンが取得できませんでした")
             return None
@@ -71,7 +72,7 @@ def download_image_from_blob(cid, access_token):
         print(f"⚠️ 画像ダウンロード失敗: {e}")
         return None
 
-def process_image(image_data, text="", access_token=None):
+def process_image(image_data, text="", client=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
         print("⚠️ 画像CIDが見つかりません")
         return False
@@ -81,7 +82,7 @@ def process_image(image_data, text="", access_token=None):
 
     try:
         # Blobから画像を取得
-        img = download_image_from_blob(cid, access_token)
+        img = download_image_from_blob(cid, client)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -196,28 +197,28 @@ def save_fuwamoko_uri(uri):
         with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
             f.write(f"{normalized_uri}|{datetime.now(timezone.utc).isoformat()}\n")
         fuwamoko_uris[normalized_uri] = datetime.now(timezone.utc)
-        print(f"💾 Saved history: uri={normalized_uri}")
+        print(f"💾 履歴保存: uri={normalized_uri}")
     except Exception as e:
-        print(f"⚠️ History save error: {e}")
+        print(f"⚠️ 履歴保存エラー: {e}")
 
 def load_session_string():
     if os.path.exists(SESSION_FILE):
         try:
             with open(SESSION_FILE, 'r', encoding='utf-8') as f:
                 session_str = f.read().strip()
-                print(f"✅ Loaded session string: {session_str[:10]}...")
+                print(f"✅ セッション文字列読み込み: {session_str[:10]}...")
                 return session_str
         except Exception as e:
-            print(f"⚠️ Failed to load session string: {str(e)}")
+            print(f"⚠️ セッション文字列読み込みエラー: {e}")
     return None
 
 def save_session_string(session_str):
     try:
         with open(SESSION_FILE, 'w', encoding='utf-8') as f:
             f.write(session_str)
-        print(f"💾 Saved session string: {session_str[:10]}...")
+        print(f"💾 セッション文字列保存: {session_str[:10]}...")
     except Exception as e:
-        print(f"⚠️ Failed to save session string: {str(e)}")
+        print(f"⚠️ セッション文字列保存エラー: {e}")
 
 def run_once():
     try:
@@ -232,9 +233,6 @@ def run_once():
             session_str = client.export_session_string()
             save_session_string(session_str)
             print(f"📨💖 ふわもこ共感Bot起動！ 新規セッション: {session_str[:10]}...")
-
-        access_jwt = client._auth_token  # 非公開APIでトークン取得
-        print(f"🔐 トークン取得: {access_jwt[:10]}...")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
         feed = timeline.feed
@@ -259,7 +257,7 @@ def run_once():
                 image_data = embed.images[0]
                 print(f"DEBUG: image_data={image_data}")
                 print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
-                if process_image(image_data, text, access_token=access_jwt) and random.random() < 0.5:
+                if process_image(image_data, text, client=client) and random.random() < 0.5:
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
