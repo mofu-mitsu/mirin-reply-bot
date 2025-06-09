@@ -15,7 +15,7 @@ from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
-MODEL_NAME = "open-calm/open-calm-1b"  # モデル名
+MODEL_NAME = "cyberagent/open-calm-1b"  # モデル名
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
