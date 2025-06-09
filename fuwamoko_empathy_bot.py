@@ -55,9 +55,7 @@ def get_blob_image_url(cid):
 
 def download_image_from_blob(cid, client):
     try:
-        session_data = client.export_session()
-        access_token = session_data.get("accessJwt", None)
-
+        access_token = client._session.access.jwt  # トークン取得
         if not access_token:
             print("⚠️ アクセストークンが取得できませんでした")
             return None
