@@ -37,10 +37,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
 def is_mutual_follow(client, handle):
     try:
-        follows = client.app.bsky.graph.get_follows(actor=handle, limit=100)  # getFollows → get_follows
-        following = [f.handle for f in follows.follows]
-        my_follows = [f.handle for f in client.app.bsky.graph.get_follows(actor=HANDLE, limit=100).follows]
-        return HANDLE in following and handle in my_follows
+        follows = client.app.bsky.graph.get_followers(actor=handle, limit=100)  # フォロワーをチェック
+        followers = [f.handle for f in follows.followers]
+        my_follows = [f.handle for f in client.app.bsky.graph.get_followers(actor=HANDLE, limit=100).followers]
+        return HANDLE in followers and handle in my_follows
     except Exception as e:
         print(f"⚠️ 相互フォロー判定エラー: {e}")
         return False
