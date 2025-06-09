@@ -16,7 +16,6 @@ from collections import Counter
 # 🔽 📡 atproto関連
 from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
-from atproto_client.models.com.atproto.server.create_session import CreateSessionData
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
@@ -203,8 +202,10 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        data = CreateSessionData(identifier=HANDLE, password=APP_PASSWORD)
-        session = client.com.atproto.server.create_session(data)
+        session = client.com.atproto.server.create_session({
+            'identifier': HANDLE,
+            'password': APP_PASSWORD
+        })
         access_jwt = session.access_jwt  # トークン取得
         print(f"📨💖 ふわもこ共感Bot起動中… トークン取得: {access_jwt[:10]}...")
 
