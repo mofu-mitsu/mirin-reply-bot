@@ -2,7 +2,6 @@ name: Fuwamoko Empathy Bot
 
 on:
   schedule:
-    - cron: "0 11 * * 4"  # UTCの11時＝JSTの20時
   workflow_dispatch:
 
 concurrency:
