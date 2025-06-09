@@ -55,6 +55,7 @@ def get_blob_image_url(cid):
     return f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg"
 
 def download_image_from_blob(cid, client, repo=None):
+    # まずCDNを試す
     cdn_urls = [
         f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg",
         f"https://cdn.bsky.app/img/feed_full/plain/{cid}",
@@ -79,18 +80,31 @@ def download_image_from_blob(cid, client, repo=None):
             print(f"⚠️ CDN画像取得失敗 (予期せぬエラー - {url}): {e}")
     
     print("❌ 全CDNパターンで画像取得失敗")
+    
+    # CDN失敗時、Bluesky APIでBlobを直接取得
+    if client and repo:
+        try:
+            print(f"DEBUG: Attempting to fetch blob directly via API for CID: {cid}")
+            blob_response = client.com.atproto.repo.get_blob(params={"did": repo, "cid": cid})
+            print("✅ Blob API画像取得成功！")
+            return Image.open(BytesIO(blob_response.content))
+        except Exception as e:
+            print(f"⚠️ Blob API画像取得失敗 (CID: {cid}): {e}")
+    
     return None
 
 def process_image(image_data, text="", client=None, post=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
-        print("⚠️ 画像CIDが見つかりません")
+        print("⚠️ 画像CIDが見つかりません (image_dataの構造が不正)")
         return False
 
     cid = image_data.image.ref.link
     print(f"DEBUG: CID={cid}")
 
     try:
-        img = download_image_from_blob(cid, client)
+        # 投稿のDIDをrepoとして渡す
+        repo = post.post.author.did if post else None
+        img = download_image_from_blob(cid, client, repo=repo)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
@@ -103,14 +117,16 @@ def process_image(image_data, text="", client=None, post=None):
         fluffy_count = 0
         for color in common_colors:
             r, g, b = color[0][:3]
-            if (r > 200 and g > 200 and b > 200) or (r > 200 and g < 150 and b < 150):
+            if (r > 200 and g > 200 and b > 200) or \
+               (r > 200 and g < 150 and b < 150) or \
+               (r > 200 and g > 150 and b < 150):
                 fluffy_count += 1
-        if fluffy_count >= 2:
+        if fluffy_count >= 1:
             print("🎉 ふわもこ色検出！")
             return True
 
         check_text = text.lower()
-        keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
+        keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft", "もふもふ"]
         if any(keyword in check_text for keyword in keywords):
             print("🎉 キーワード検出！")
             return True
@@ -239,15 +255,17 @@ def run_once():
             print(f"📨💖 ふわもこ共感Bot起動！ 新規セッション: {session_str[:10]}...")
 
         # 特定投稿を直接取得
+        target_post_uri = "at://did:plc:lmntwwwhxvedq3r4retqishb/app.bsky.feed.post/3lr6hwd3a2c2k"
         try:
-            thread = client.app.bsky.feed.get_post_thread(params={"uri": "at://mofumitsukoubou.bsky.social/app.bsky.feed.post/3lr6hwd3a2c2k", "depth": 2})
+            print(f"🔍 DEBUG: Attempting to get specific post thread for URI: {target_post_uri}")
+            thread_response = client.app.bsky.feed.get_post_thread(params={"uri": target_post_uri, "depth": 2})
             thread_dict = {
-                "uri": thread.thread.uri,
+                "uri": thread_response.thread.post.uri,
                 "post": {
-                    "author": thread.thread.post.author.handle,
-                    "did": thread.thread.post.author.did,
-                    "text": getattr(thread.thread.post.record, "text", ""),
-                    "embed": getattr(thread.thread.post.record, "embed", None).__dict__ if getattr(thread.thread.post.record, "embed", None) else None
+                    "author": thread_response.thread.post.author.handle,
+                    "did": thread_response.thread.post.author.did,
+                    "text": getattr(thread_response.thread.post.record, "text", ""),
+                    "embed": getattr(thread_response.thread.post.record, "embed", None).__dict__ if getattr(thread_response.thread.post.record, "embed", None) else None
                 }
             }
             print(f"🔍 DEBUG: Specific Thread JSON={json.dumps(thread_dict, default=str, ensure_ascii=False, indent=2)}")
@@ -260,9 +278,17 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
-            print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
+        for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True):
+            print(f"DEBUG: Processing Post indexed_at={post.post.indexed_at}")
             print(f"DEBUG: Post author={post.post.author.handle}, URI={post.post.uri}")
+            
+            if str(post.post.uri) in fuwamoko_uris or \
+               post.post.author.handle == HANDLE or \
+               is_quoted_repost(post) or \
+               str(post.post.uri).split('/')[-1] in reposted_uris:
+                print(f"DEBUG: Skipping post {post.post.uri} (already processed, own post, quoted repost, or reposted).")
+                continue
+
             post_dict = {
                 "uri": post.post.uri,
                 "cid": post.post.cid,
@@ -274,21 +300,21 @@ def run_once():
             print(f"🔍 DEBUG: Post JSON={json.dumps(post_dict, default=str, ensure_ascii=False, indent=2)}")
 
             try:
-                thread = client.app.bsky.feed.get_post_thread(params={"uri": post.post.uri, "depth": 2})
+                thread_response = client.app.bsky.feed.get_post_thread(params={"uri": post.post.uri, "depth": 2})
                 thread_dict = {
-                    "uri": thread.thread.uri,
+                    "uri": thread_response.thread.post.uri,
                     "post": {
-                        "author": thread.thread.post.author.handle,
-                        "did": thread.thread.post.author.did,
-                        "text": getattr(thread.thread.post.record, "text", ""),
-                        "embed": getattr(thread.thread.post.record, "embed", None).__dict__ if getattr(thread.thread.post.record, "embed", None) else None
+                        "author": thread_response.thread.post.author.handle,
+                        "did": thread_response.thread.post.author.did,
+                        "text": getattr(thread_response.thread.post.record, "text", ""),
+                        "embed": getattr(thread_response.thread.post.record, "embed", None).__dict__ if getattr(thread_response.thread.post.record, "embed", None) else None
                     }
                 }
-                print(f"🔍 DEBUG: Thread JSON={json.dumps(thread_dict, default=str, ensure_ascii=False, indent=2)}")
+                print(f"🔍 DEBUG: Thread JSON={json.dumps(thread_dict, default=str, indent=2)}")
             except Exception as e:
-                print(f"⚠️ get_post_threadエラー: {e}")
+                print(f"⚠️ get_post_threadエラー (in timeline loop): {e}")
 
-            time.sleep(random.uniform(5, 10))
+            time.sleep(random.uniform(2, 5))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
             post_id = uri.split('/')[-1]
@@ -299,28 +325,33 @@ def run_once():
             if embed and hasattr(embed, 'images') and embed.images:
                 print("🔍 DEBUG: Found direct embedded images")
                 image_data_list = embed.images
-                print(f"🔍 DEBUG: Direct images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
+                print(f"🔍 DEBUG: Direct images={[{k: getattr(img, k) for k in ['alt', 'image']} for img in image_data_list]}")
             elif embed and hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images') and embed.record.embed.images:
                 print("🔍 DEBUG: Found embedded images in quoted post")
                 image_data_list = embed.record.embed.images
                 print(f"🔍 DEBUG: Quoted post author={embed.record.author.handle}, DID={embed.record.author.did}")
-                print(f"🔍 DEBUG: Quoted images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
+                print(f"🔍 DEBUG: Quoted images={[{k: getattr(img, k) for k in ['alt', 'image']} for img in image_data_list]}")
             elif embed and embed.get('$type') == 'app.bsky.embed.recordWithMedia':
                 print("🔍 DEBUG: Found recordWithMedia embed")
                 if hasattr(embed, 'media') and hasattr(embed.media, 'images') and embed.media.images:
                     image_data_list = embed.media.images
-                    print(f"🔍 DEBUG: RecordWithMedia images={[{k: getattr(img, k) for k in ['alt', 'image', 'aspect_ratio']} for img in image_data_list]}")
+                    print(f"🔍 DEBUG: RecordWithMedia images={[{k: getattr(img, k) for k in ['alt', 'image']} for img in image_data_list]}")
             else:
-                print("🔍 DEBUG: No images found in post")
+                print("🔍 DEBUG: No images found in post after embed check.")
                 continue
 
-            if uri in fuwamoko_uris or author == HANDLE or is_quoted_repost(post) or post_id in reposted_uris:
+            if not is_mutual_follow(client, author):
+                print(f"DEBUG: Skipping post from {author} (not mutual follow).")
                 continue
 
-            if image_data_list and is_mutual_follow(client, author):
+            if image_data_list:
                 image_data = image_data_list[0]
                 print(f"🔍 DEBUG: image_data={image_data.__dict__}")
                 print(f"🔍 DEBUG: image_data keys={list(image_data.__dict__.keys())}")
+                
+                if not getattr(image_data, 'alt', '').strip():
+                    print("DEBUG: Image alt text is empty. Considering it for 'ふわもこ' analysis based on colors.")
+                
                 if process_image(image_data, text, client=client, post=post) and random.random() < 0.5:
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
@@ -343,6 +374,8 @@ def run_once():
                     print(f"✅ 返信しました → @{author}")
                 else:
                     print(f"🚫 ふわもこ要素なしまたは確率外 → @{author}")
+            else:
+                print(f"DEBUG: No image_data_list to process for post {uri}.")
 
     except InvokeTimeoutError:
         print("⚠️ APIタイムアウト！")
