@@ -118,7 +118,7 @@ def is_quoted_repost(post):
         if hasattr(post.post.record, 'embed') and post.post.record.embed:
             embed = post.post.record.embed
             if hasattr(embed, 'record'):
-                print(f"📌❓ 引用リポスト検出: URI={embed.record.uri}")
+                print(f"📌 引用リポスト検出: URI={embed.record.uri}")
                 return True
         return False
     except Exception as e:
@@ -142,9 +142,9 @@ def detect_language(client, handle):
     try:
         profile = client.app.bsky.actor.get_profile(params={"actor": handle})
         bio = profile.display_name.lower() + " " + getattr(profile, "description", "").lower()
-        if any(kw in bio for kw in ["Japanese", "Japan", "日本語", "にほん"]):
+        if any(kw in bio for kw in ["日本語", "日本", "にほん"]):
             return "ja"
-        elif any(kw in bio for kw in ["English", "US", "UK", "english", "us", "uk"]):
+        elif any(kw in bio for kw in ["english", "us", "uk"]):
             return "en"
         return "ja"  # デフォルト
     except Exception as e:
@@ -202,9 +202,9 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        client.login(HANDLE, APP_PASSWORD)  # ログイン
-        access_jwt = client._session.access.jwt  # トークン取得
-        print(f"📨💖 ふわもこ共感Bot起動中… トークン取得: {access_jwt[:10]}...")
+        session = client.login(HANDLE, APP_PASSWORD)  # ログイン
+        access_jwt = session.access_jwt  # トークン取得
+        print(f"📨💖 ふわもこ共感Bot起動！ トークン取得: {access_jwt[:10]}...")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
         feed = timeline.feed
@@ -214,8 +214,8 @@ def run_once():
 
         # 最新投稿1件だけ処理
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
-            print(f"DEBUG: Post indexed_at = {post.post.indexed_at}")
-            time.sleep(random.uniform(5, 15))
+            print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
+            time.sleep(random.uniform(2, 5))  # 負荷軽減
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
             post_id = uri.split('/')[-1]
@@ -227,8 +227,8 @@ def run_once():
 
             if embed and hasattr(embed, 'images') and is_mutual_follow(client, author):
                 image_data = embed.images[0]
-                print(f"DEBUG: image_data = {image_data}")
-                print(f"DEBUG: image_data keys = {getattr(image_data, '__dict__', 'not a dict')}")
+                print(f"DEBUG: image_data={image_data}")
+                print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
                 if process_image(image_data, text, access_token=access_jwt) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)  # image_url不要
