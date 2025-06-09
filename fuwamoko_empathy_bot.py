@@ -16,7 +16,8 @@ from collections import Counter
 # 🔽 📡 atproto関連
 from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
-from atproto_client.models.com.atproto.server.create_session import CreateSessionData  # ★変更★
+# ★★★ 変更点1: CreateSessionData を Data に変更 ★★★
+from atproto_client.models.com.atproto.server.create_session import Data # ここを Data に変更！
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
@@ -205,9 +206,11 @@ def run_once():
         client = Client()
         # ★★★ ログイン処理 ★★★
         session = client.com.atproto.server.create_session(
-            data=CreateSessionData(identifier=HANDLE, password=APP_PASSWORD)
+            # ★★★ 変更点2: Data クラスを使う ★★★
+            data=Data(identifier=HANDLE, password=APP_PASSWORD)
         )
-        access_jwt = session.accessJwt  # camelCase
+        # ★★★ 変更点3: access_jwt は snake_case で取得 ★★★
+        access_jwt = session.access_jwt  # camelCaseではなくsnake_case！
         client.set_session(session)  # 認証を紐付け
 
         print(f"📨💖 ふわもこ共感Bot起動！ トークン取得: {access_jwt[:10]}...")
