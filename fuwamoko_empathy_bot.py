@@ -18,15 +18,15 @@ from atproto import Client, models
 from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
 
-# 🔽 🧠 Transformers用設定
-MODEL_NAME = "cyberagent/open-calm-1b"  # モデル名
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-
 # 環境変数読み込み
-load_dotenv()  # .envファイルから読み込み（なくてもSecretsで動作）
+load_dotenv()
 HANDLE = os.environ.get("HANDLE")
 APP_PASSWORD = os.environ.get("APP_PASSWORD")
+
+# Transformers用設定（変更なし）
+MODEL_NAME = "cyberagent/open-calm-1b"
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = f"{context}: 画像: {image_url}, テキスト: {text}, 言語: {lang}"
@@ -76,24 +76,19 @@ def process_image(image_data, text="", access_token=None):
         return False
 
     cid = image_data.image.ref.link
-    print(f"DEBUG: CID = {cid}")
+    print(f"DEBUG: CID={cid}")
 
     try:
-        # Blobから画像を取得
         img = download_image_from_blob(cid, access_token)
         if img is None:
             print("⚠️ 画像取得失敗")
             return False
 
-        # Pillowで解析
         img = img.resize((50, 50))
         colors = img.getdata()
         color_counts = Counter(colors)
-        common_colors = color_counts.most_common(5)
-
-        # 淡い色（白、ピンク系）が多いかチェック
         fluffy_count = 0
-        for color in common_colors:
+        for color in color_counts.most_common(5):
             r, g, b = color[0][:3]
             if (r > 200 and g > 200 and b > 200) or (r > 200 and g < 150 and b < 150):
                 fluffy_count += 1
@@ -101,13 +96,11 @@ def process_image(image_data, text="", access_token=None):
             print("🎉 ふわもこ色検出！")
             return True
 
-        # 文字列マッチングのバックアップ
         check_text = text.lower()
         keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft"]
         if any(keyword in check_text for keyword in keywords):
             print("🎉 ふわもこキーワード検出！")
             return True
-
         return False
     except Exception as e:
         print(f"⚠️ 画像解析エラー: {e}")
@@ -142,11 +135,11 @@ def detect_language(client, handle):
     try:
         profile = client.app.bsky.actor.get_profile(params={"actor": handle})
         bio = profile.display_name.lower() + " " + getattr(profile, "description", "").lower()
-        if any(kw in bio for kw in ["日本語", "日本", "にほん"]):
+        if any(kw in bio for kw in ["日本語", "日本", "にほん", "japanese"]):
             return "ja"
         elif any(kw in bio for kw in ["english", "us", "uk"]):
             return "en"
-        return "ja"  # デフォルト
+        return "ja"
     except Exception as e:
         print(f"⚠️ 言語判定エラー: {e}")
         return "ja"
@@ -202,8 +195,17 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        session = client.login(HANDLE, APP_PASSWORD)  # ログイン
-        access_jwt = session.access_jwt  # トークン取得
+        # ★★★ ログイン処理を修正 ★★★
+        # 1. create_sessionでセッション情報を取得
+        session_response = client.com.atproto.server.create_session(
+            identifier=HANDLE,
+            password=APP_PASSWORD
+        )
+        # 2. accessJwtをsession_responseから直接取得（camelCase）
+        access_jwt = session_response.accessJwt
+        # 3. 取得したセッション情報をclientオブジェクトにセット
+        client.set_session(session_response)
+
         print(f"📨💖 ふわもこ共感Bot起動！ トークン取得: {access_jwt[:10]}...")
 
         timeline = client.app.bsky.feed.get_timeline(params={"limit": 20})
@@ -212,10 +214,9 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        # 最新投稿1件だけ処理
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True)[:1]:
             print(f"DEBUG: Post indexed_at={post.post.indexed_at}")
-            time.sleep(random.uniform(2, 5))  # 負荷軽減
+            time.sleep(random.uniform(2, 5))
             text = getattr(post.post.record, "text", "")
             uri = str(post.post.uri)
             post_id = uri.split('/')[-1]
@@ -229,9 +230,9 @@ def run_once():
                 image_data = embed.images[0]
                 print(f"DEBUG: image_data={image_data}")
                 print(f"DEBUG: image_data keys={getattr(image_data, '__dict__', 'not a dict')}")
-                if process_image(image_data, text, access_token=access_jwt) and random.random() < 0.5:  # 50%確率
+                if process_image(image_data, text, access_token=access_jwt) and random.random() < 0.5:
                     lang = detect_language(client, author)
-                    reply_text = open_calm_reply("", text, lang=lang)  # image_url不要
+                    reply_text = open_calm_reply("", text, lang=lang)
                     print(f"✨ ふわもこ共感成功 → @{author}: {text} (言語: {lang})")
 
                     reply_ref = AppBskyFeedPost.ReplyRef(
