@@ -1,7 +1,6 @@
 name: Fuwamoko Empathy Bot
 
 on:
-  schedule:
   workflow_dispatch:
 
 concurrency:
