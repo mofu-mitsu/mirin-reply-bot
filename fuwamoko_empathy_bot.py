@@ -202,9 +202,7 @@ def save_fuwamoko_uri(uri):
 def run_once():
     try:
         client = Client()
-        session = client.com.atproto.server.create_session(
-            models.ComAtprotoServerCreateSession.Params(identifier=HANDLE, password=APP_PASSWORD)
-        )
+        session = client.com.atproto.server.create_session(identifier=HANDLE, password=APP_PASSWORD)
         access_jwt = session.access_jwt  # トークン取得
         print(f"📨💖 ふわもこ共感Bot起動中… トークン取得: {access_jwt[:10]}...")
 
