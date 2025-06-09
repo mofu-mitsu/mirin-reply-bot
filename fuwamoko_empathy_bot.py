@@ -54,18 +54,28 @@ def is_mutual_follow(client, handle):
         print(f"⚠️ 相互フォロー判定エラー: {e}")
         return False
 
+def get_image_url(image_data):
+    try:
+        # dict型または属性アクセスで取得
+        if isinstance(image_data, dict):
+            return image_data.get('thumbnail') or image_data.get('url') or image_data.get('image', {}).get('url', '') or ""
+        else:
+            return getattr(image_data, 'thumbnail', '') or getattr(image_data, 'url', '') or getattr(image_data, 'image', {}).get('url', '')
+    except Exception as e:
+        print(f"⚠️ get_image_urlエラー: {e}")
+        return ""
+
 def process_image(image_data, text=""):
-    # 画像URLを取得（thumbnailまたはurlから）
-    image_url = getattr(image_data, 'thumbnail', getattr(image_data, 'url', ''))
+    image_url = get_image_url(image_data)
     if not image_url:
         print("⚠️ 画像URLが見つかりません")
         return False
 
     try:
-        # 画像をダウンロード
+        # 画像をダウンロードしてPillowで解析
         response = requests.get(image_url, timeout=10)
         response.raise_for_status()
-        img = Image.open(BytesIO(response.content)).resize((50, 50))  # 簡略化して解析
+        img = Image.open(BytesIO(response.content)).resize((50, 50))
         colors = img.getdata()
         color_counts = Counter(colors)
         common_colors = color_counts.most_common(5)
@@ -74,10 +84,9 @@ def process_image(image_data, text=""):
         fluffy_count = 0
         for color in common_colors:
             r, g, b = color[0][:3]
-            # 白（R,G,B > 200）またはピンク（R>200, G,B<150）
             if (r > 200 and g > 200 and b > 200) or (r > 200 and g < 150 and b < 150):
                 fluffy_count += 1
-        if fluffy_count >= 2:  # 2色以上がふわもこっぽい色ならTrue
+        if fluffy_count >= 2:
             return True
 
         # 文字列マッチングのバックアップ
@@ -202,8 +211,9 @@ def run_once():
 
             if embed and hasattr(embed, 'images') and is_mutual_follow(client, author):
                 image_data = embed.images[0]
-                print(f"DEBUG: Image data = {image_data.__dict__}")
-                image_url = getattr(image_data, 'thumbnail', getattr(image_data, 'url', ''))
+                print(f"DEBUG: image_data = {image_data}")
+                print(f"DEBUG: image_data keys = {getattr(image_data, '__dict__', 'not a dict')}")
+                image_url = get_image_url(image_data)
                 if process_image(image_data, text) and random.random() < 0.5:  # 50%確率
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply(image_url, text, lang=lang)
