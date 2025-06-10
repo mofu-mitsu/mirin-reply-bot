@@ -52,7 +52,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=40,  # 増やして自然な出力に
+            max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
             temperature=0.8,
@@ -60,7 +60,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.95
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
-        reply = reply.replace(prompt, "").strip()  # プロンプト強制除去
+        reply = reply.replace(prompt, "").strip()  # プロンプト除去
         reply = re.sub(r'^(ふwaもこ！|モフモフ！|ふわもこ|モフモフ|です|ます|の|。|、|\s)*', '', reply, flags=re.IGNORECASE).strip()
         reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす|6月24日|5月15日|この絵本は|子どもから大人まで楽しめる|絵本の読み聞かせ).*', '', reply, flags=re.IGNORECASE).strip()
         print(f"🛠️ DEBUG: AI generated reply: {reply}")
@@ -331,7 +331,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         
         print(f"🛠️ DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
-        if uri in fuwamoko_uris:  # チェックを先頭に
+        if uri in fuwamoko_uris:
             print(f"⏭️ SKIP: 既に返信済みの投稿なのでスキップ: {post_id}")
             logging.debug(f"既に返信済みの投稿: {post_id}")
             return False
@@ -374,26 +374,26 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         if image_data_list:
             image_data = image_data_list[0]
             if process_image(image_data, text, client=client, post=post):
-                if random.random() >= 0.5:  # 50%スキップをここで判定
+                if random.random() < 0.5:
+                    lang = detect_language(client, author)
+                    reply_text = open_calm_reply("", text, lang=lang)
+                    reply_ref = models.AppBskyFeedPost.ReplyRef(
+                        root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
+                        parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
+                    )
+                    print(f"🛠️ DEBUG: Sending post to @{author} with text: {reply_text}")
+                    logging.debug(f"Sending post to @{author} with text: {reply_text}")
+                    client.send_post(
+                        text=reply_text,
+                        reply_to=reply_ref
+                    )
+                    save_fuwamoko_uri(uri, indexed_at)
+                    print(f"✅ SUCCESS: 返信しました → @{author}")
+                    logging.debug(f"返信成功: @{author}")
+                    return True
+                else:
                     print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
                     logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
-                    return False
-                lang = detect_language(client, author)
-                reply_text = open_calm_reply("", text, lang=lang)
-                reply_ref = models.AppBskyFeedPost.ReplyRef(
-                    root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
-                    parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
-                )
-                print(f"🛠️ DEBUG: Sending post to @{author} with text: {reply_text}")
-                logging.debug(f"Sending post to @{author} with text: {reply_text}")
-                client.send_post(
-                    text=reply_text,
-                    reply_to=reply_ref
-                )
-                save_fuwamoko_uri(uri, indexed_at)
-                print(f"✅ SUCCESS: 返信しました → @{author}")
-                logging.debug(f"返信成功: @{author}")
-                return True
             else:
                 print(f"⏭️ SKIP: ふわもこ画像でないのでスキップ: {post_id}")
                 logging.debug(f"ふわもこ画像でない: {post_id}")
