@@ -44,15 +44,13 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    instruction = (
-        "あなたはふわもこ系のやさしいBotです。"
-        "以下のユーザーの投稿に、親しみやすく共感して短く返信してください。"
-        "返信にはかわいい絵文字を1つか2つ入れてください。"
-        "返信はカジュアルで口語的な日本語にしてください。"
+    prompt = (
+        "ふわもこBotとユーザーの会話:\n"
+        f"ユーザー: 「{text[:60]}」\n"
+        "ふわもこBot: "
     )
-    prompt = f"{instruction}\n投稿:「{text[:80]}」\n返事: "
     
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=120).to(model.device)  # max_length調整
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=140).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
@@ -64,12 +62,11 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^.*?返事:\s*', '', reply)  # 「返事:」から抜き出し
-        reply = re.sub(r'🧸{3,}|�|■.*?■', '', reply)  # 過多・文字化け除去
-        reply = reply.strip()
+        reply = re.sub(r'^ふわもこBot:\s*', '', reply)
+        reply = re.sub(r'🧸{3,}|�|■.*?■|返信|いいね|投稿|ユーザー|会話', '', reply).strip()
         print(f"🛠️ DEBUG: AI generated reply: {reply}")
         logging.debug(f"AI generated reply: {reply}")
-        if not reply or len(reply) < 4 or "漫画家の顔" in reply or "管制官" in reply:
+        if not reply or len(reply) < 4:
             print("🛠️ DEBUG: AI reply invalid, using template")
             logging.debug("AI reply invalid, using template")
             reply = None
@@ -80,30 +77,18 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     
     if lang == "ja":
         return reply or random.choice([
-            "え、待って！このふわもこ、みりんてゃの心臓バクバク！🧸💥",
-            "きゃー！このモフモフ、みりんてゃの癒し100％！💖",
-            "ふwaふwaすぎてみりんてゃ飛んじゃう！🌸🧸",
-            "モフモフ天国！みりんてゃの心、奪われた！💞",
-            "このふwaもこ、みりんてゃの夢そのもの！🧸✨",
-            "うわっ！この可愛さ、みりんてゃ倒れそう！💖",
-            "ふわふwaハグしたい！みりんてゃの愛全開！🌷",
-            "このモフモフ、みりんてゃの癒し爆発！🧸💫",
-            "ピンクと白の奇跡！みりんてゃキュン死！💕",
-            "ふwaもこすぎてみりんてゃの心がモフっと！🌸",
-            "このふwaもこ、みりんてゃの愛が爆発！💖",
-            "モフモフすぎてみりんてゃの心が溶ける！🧸",
-            "ふwaふwa天国！みりんてゃの癒しMAX！🌷",
-            "この可愛さ、みりんてゃの心を鷲づかみ！💞",
-            "ふwaもこ愛！みりんてゃのハート直撃！🧸💥"
+            "うんうん、がんばったね…！ふわっと休もうね🐰💖",
+            "きゃー！可愛すぎ！癒されたよ🌸🧸",
+            "よかったね〜！モフモフだね💞",
+            "うわっ！癒しMAX！ありがとうね🐾🌷",
+            "ふわふわだね、元気出たよ💫🧸"
         ])
     else:
         return reply or random.choice([
-            "Wow! So fluffy~ Mirin is obsessed! 💕",
-            "Oh my! This cuteness kills me~ Mirin loves it! 🥰",
-            "Amazing! Fluffy vibes healing my soul! 🌸",
-            "This fluff is unreal! Mirin’s heart skips! 💖",
-            "So soft! Mirin can’t handle this cuteness! 🧸",
-            "Fluffy perfection! Mirin’s in love! 💞"
+            "Wow, so cute! Feels good~ 🐰💖",
+            "Nice one! So fluffy~ 🌸🧸",
+            "Great! Healing vibes! 💞",
+            "Amazing! Thanks for the fluff! 🐾🌷"
         ])
 
 def is_mutual_follow(client, handle):
