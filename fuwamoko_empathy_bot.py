@@ -20,9 +20,9 @@ from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
-MODEL_NAME = "cyberagent/open-calm-1b"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+MODEL_NAME = "cyberagent/open-calm-small"  # 軽量モデルに変更
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=".cache")
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, cache_dir=".cache")
 
 # 環境変数読み込み
 load_dotenv()
@@ -33,21 +33,16 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    prompt = f"""地雷系で可愛い、ENFPらしいテンション高めのふわもこ共感！💖
-テーマ: ふわもこ、ぬいぐるみ、ピンク、白、癒し、モチモチ
-画像: {image_url or 'ピンクと白のふわもこ！'}
-テキスト: {text or 'モフモフすぎて秒で刺さった！🧸'}
-言語: {lang}"""
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
-    outputs = model.generate(**inputs, max_length=60, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
+    prompt = f"地雷系で可愛いふわもこ共感！💖 ピンク、白、ぬいぐるみ、癒し！ 画像: {image_url or 'ふわもこ！'} テキスト: {text or 'モフモフ！🧸'} 言語: {lang}"
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=100)
+    outputs = model.generate(**inputs, max_new_tokens=40, pad_token_id=tokenizer.eos_token_id)
     reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-    # プロンプトがそのまま返されるのを防ぐ
     if reply.startswith("地雷系") or reply == prompt:
         reply = None
-    return reply or ("え、待って！このふわもこ、完全にみりんてゃの心臓直撃なんだけど！🧸💥" if lang == "ja" else random.choice([
-        "Wow! So fluffy~ Mirin is totally obsessed! 💕",
-        "Oh my! This cuteness is killing me~ Mirin loves it! 🥰",
-        "Amazing! These fluffy vibes are healing my soul! 🌸"
+    return reply or ("え、待って！このふわもこ、みりんてゃの心臓バクバク！🧸💥" if lang == "ja" else random.choice([
+        "Wow! So fluffy~ Mirin is obsessed! 💕",
+        "Oh my! This cuteness kills me~ Mirin loves it! 🥰",
+        "Amazing! Fluffy vibes healing my soul! 🌸"
     ]))
 
 def is_mutual_follow(client, handle):
@@ -222,7 +217,7 @@ def load_fuwamoko_uris():
                     for line in f:
                         if line.strip():
                             uri, timestamp = line.strip().split("|", 1)
-                            fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp)
+                            fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 print(f"📂 既存ふわもこ履歴を読み込み: {len(fuwamoko_uris)}件")
             except Exception as e:
                 print(f"⚠️ 履歴読み込みエラー: {e}")
@@ -239,14 +234,13 @@ def save_fuwamoko_uri(uri, indexed_at):
             print(f"⩗ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
             return
         try:
-            # indexed_atが文字列ならdatetimeに変換
             if isinstance(indexed_at, str):
                 indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             fuwamoko_uris[normalized_uri] = indexed_at
             print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
-            load_fuwamoko_uris()  # 再読み込み
+            load_fuwamoko_uris()
         except Exception as e:
             print(f"⚠️ 履歴保存エラー: {e}")
 
@@ -346,7 +340,7 @@ def run_once():
             save_session_string(session_str)
             print(f"📨 ふわもこBot起動！ 新規セッション")
 
-        load_fuwamoko_uris()  # 開始時に履歴読み込み
+        load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
         target_post_uri = "at://did:plc:lmntwwwhxvedq3r4retqishb/app.bsky.feed.post/3lr6hwd3a2c2k"
