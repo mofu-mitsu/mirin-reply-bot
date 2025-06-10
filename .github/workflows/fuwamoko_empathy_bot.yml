@@ -33,7 +33,7 @@ jobs:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |
-          time python fuwamoko_bot.py
+          time python fuwamoko_empathy_bot.py
       - name: Upload fuwamoko uris
         uses: actions/upload-artifact@v4
         with:
