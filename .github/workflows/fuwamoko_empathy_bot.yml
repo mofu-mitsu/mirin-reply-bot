@@ -1,46 +1,45 @@
 name: Fuwamoko Empathy Bot
-
 on:
+  schedule:
+    - cron: '0 */2 * * *'
+  push:
+    branches: [main]
   workflow_dispatch:
-
 concurrency:
   group: fuwamoko-empathy
-  cancel-in-progress: true  # 二重起動を防止
-
+  cancel-in-progress: true
 jobs:
   run-fuwamoko-empathy-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
+          cache: 'pip'
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install torch==2.0.1 transformers==4.36.2 psutil==5.9.8 sentencepiece==0.2.0
-          pip install -U accelerate
-          pip install atproto requests python-dotenv pillow
-
+          pip install torch==2.0.1 transformers==4.36.2 filelock==3.15.4 atproto==0.0.4 atproto_client==0.0.4 requests==2.32.3 pillow==10.4.0 python-dotenv==1.0.1
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: ${{ runner.os }}-huggingface-${{ hashFiles('requirements.txt') }}
       - name: Preload open-calm-small model
         run: |
-          python -c "
-          from transformers import AutoModelForCausalLM, AutoTokenizer;
-          model = AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache');
-          tokenizer = AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache');
-          print('Model and tokenizer preloaded!');
-          "
-
+          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', torch_dtype='auto', device_map='auto'); AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache')"
       - name: Run Fuwamoko Empathy Bot
         env:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
-          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
-          python fuwamoko_empathy_bot.py
+          time python fuwamoko_bot.py
+      - name: Upload fuwamoko uris
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuwamoko-uris
+          path: fuwamoko_empathy_uris.txt
