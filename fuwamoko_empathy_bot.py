@@ -37,21 +37,21 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    prompt = f"💖 ふわもこ共感！ピンク、白、癒し！画像: {image_url or 'ふわもこ！'} テキスト: {text or 'モフモフ！🧸'}"
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=80).to(model.device)
+    prompt = f"ピンクと白のふわもこ癒し！🧸💖 画像: {image_url or 'ふわもこ！'} テキスト: {text or 'モフモフ！'}"
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=60).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=30,
+            max_new_tokens=25,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.9,
-            top_k=50,
-            top_p=0.95
+            temperature=0.95,
+            top_k=40,
+            top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         print(f"DEBUG: AI generated reply: {reply}")
-        if reply == prompt or reply.startswith("💖 ふわもこ共感") or len(reply) < 10:
+        if reply == prompt or reply.startswith("ピンクと白") or len(reply) < 5:
             print("DEBUG: AI reply invalid, using template")
             reply = None
     except Exception as e:
@@ -62,13 +62,22 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         return reply or random.choice([
             "え、待って！このふわもこ、みりんてゃの心臓バクバク！🧸💥",
             "きゃー！このモフモフ、みりんてゃの癒し100％！💖",
-            "ふwaふwaすぎてみりんてゃ飛んじゃう！🌸🧸"
+            "ふwaふwaすぎてみりんてゃ飛んじゃう！🌸🧸",
+            "モフモフ天国！みりんてゃの心、奪われた！💞",
+            "このふwaもこ、みりんてゃの夢そのもの！🧸✨",
+            "うわっ！この可愛さ、みりんてゃ倒れそう！💖",
+            "ふわふwaハグしたい！みりんてゃの愛全開！🌷",
+            "このモフモフ、みりんてゃの癒し爆発！🧸💫",
+            "ピンクと白の奇跡！みりんてゃキュン死！💕",
+            "ふwaもこすぎてみりんてゃの心がモフっと！🌸"
         ])
     else:
         return reply or random.choice([
             "Wow! So fluffy~ Mirin is obsessed! 💕",
             "Oh my! This cuteness kills me~ Mirin loves it! 🥰",
-            "Amazing! Fluffy vibes healing my soul! 🌸"
+            "Amazing! Fluffy vibes healing my soul! 🌸",
+            "This fluff is unreal! Mirin’s heart skips! 💖",
+            "So soft! Mirin can’t handle this cuteness! 🧸"
         ])
 
 def is_mutual_follow(client, handle):
@@ -211,44 +220,58 @@ def normalize_uri(uri):
 def load_fuwamoko_uris():
     global fuwamoko_uris
     fuwamoko_uris.clear()
-    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
-    try:
-        with lock:
-            if os.path.exists(FUWAMOKO_FILE):
-                with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        if line.strip():
-                            uri, timestamp = line.strip().split("|", 1)
-                            fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                print(f"DEBUG: Loaded {len(fuwamoko_uris)} fuwamoko uris")
-            else:
-                print(f"📂 {FUWAMOKO_FILE} が見つかりません。新規作成します")
-                with open(FUWAMOKO_FILE, 'w', encoding='utf-8') as f:
-                    pass
-    except filelock.Timeout:
-        print(f"⚠️ ファイルロックタイムアウト: {FUWAMOKO_FILE}")
-    except Exception as e:
-        print(f"⚠️ 履歴読み込みエラー: {e}")
+    for attempt in range(3):
+        lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=30.0)
+        try:
+            with lock:
+                if os.path.exists(FUWAMOKO_FILE):
+                    with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if line.strip():
+                                uri, timestamp = line.strip().split("|", 1)
+                                fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                    print(f"DEBUG: Loaded {len(fuwamoko_uris)} fuwamoko uris")
+                else:
+                    print(f"📂 {FUWAMOKO_FILE} が見つかりません。新規作成します")
+                    with open(FUWAMOKO_FILE, 'w', encoding='utf-8') as f:
+                        pass
+                return
+        except filelock.Timeout:
+            print(f"⚠️ ファイルロックタイムアウト（試行{attempt+1}/3）: {FUWAMOKO_FILE}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"⚠️ 履歴読み込みエラー: {e}")
+            return
+    print(f"⚠️ 履歴読み込み失敗（全試行終了）")
 
 def save_fuwamoko_uri(uri, indexed_at):
     normalized_uri = normalize_uri(uri)
-    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
-    try:
-        with lock:
-            if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
-                print(f"⏭️ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
+    for attempt in range(3):
+        lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=30.0)
+        try:
+            with lock:
+                if os.path.exists(FUWAMOKO_FILE):
+                    with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    with open(FUWAMOKO_FILE + '.bak', 'w', encoding='utf-8') as f:
+                        f.write(content)
+                if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
+                    print(f"⏭️ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
+                    return
+                if isinstance(indexed_at, str):
+                    indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
+                with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
+                    f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
+                fuwamoko_uris[normalized_uri] = indexed_at
+                print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
+                load_fuwamoko_uris()
                 return
-            if isinstance(indexed_at, str):
-                indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
-            with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
-                f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
-            fuwamoko_uris[normalized_uri] = indexed_at
-            print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
-            load_fuwamoko_uris()
-    except filelock.Timeout:
-        print(f"⚠️ ファイルロックタイムアウト: {FUWAMOKO_FILE}")
-    except Exception as e:
-        print(f"⚠️ 履歴保存エラー: {e}")
+        except filelock.Timeout:
+            print(f"⚠️ ファイルロックタイムアウト（試行{attempt+1}/3）: {FUWAMOKO_FILE}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"⚠️ 履歴保存エラー: {e}")
+    print(f"⚠️ 履歴保存失敗（全試行終了）: {normalized_uri}")
 
 def load_session_string():
     if os.path.exists(SESSION_FILE):
@@ -274,11 +297,12 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         post_id = uri.split('/')[-1]
         
         # スキップ条件チェック
+        print(f"DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         if uri in fuwamoko_uris:
             print(f"⏭️ 既に返信済みの投稿なのでスキップ: {post_id}")
             return False
         if actual_post.author.handle == HANDLE:
-            print(f"⏭️ 自分の投稿なのでスキップ: {post_id}")
+            print(f"⏭️ 自分の投稿なのでスキップ: {post_id} (Author: @{actual_post.author.handle})")
             return False
         if is_quoted_repost(post):
             print(f"⏭️ 引用リポストなのでスキップ: {post_id}")
@@ -305,7 +329,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             return False
 
         if not is_mutual_follow(client, author):
-            print(f"⏭️ 非相互フォローなのでスキップ: {post_id}")
+            print(f"⏭️ 非相互フォローなのでスキップ: {post_id} (Author: @{author})")
             return False
 
         if image_data_list:
@@ -348,10 +372,10 @@ def run_once():
             save_session_string(session_str)
             print(f"📨 ふわもこBot起動！ 新規セッション")
 
+        print(f"DEBUG: Bot HANDLE={HANDLE}")
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        # 動的URI取得（最新ポストを処理）
         timeline = client.get_timeline(limit=50)
         feed = timeline.feed
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True):
