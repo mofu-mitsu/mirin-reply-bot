@@ -1,7 +1,6 @@
 # 🔽 📦 Pythonの標準ライブラリ
 from datetime import datetime, timezone
 import os
-import json
 import time
 import random
 import requests
@@ -13,6 +12,7 @@ from dotenv import load_dotenv
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from PIL import Image
 from collections import Counter
+import torch
 
 # 🔽 📡 atproto関連
 from atproto import Client, models
@@ -20,9 +20,15 @@ from atproto_client.models import AppBskyFeedPost
 from atproto_client.exceptions import InvokeTimeoutError
 
 # 🔽 🧠 Transformers用設定
-MODEL_NAME = "cyberagent/open-calm-small"  # 軽量モデルに変更
+MODEL_NAME = "cyberagent/open-calm-small"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=".cache")
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, cache_dir=".cache")
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    cache_dir=".cache",
+    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    device_map="auto"
+)
+tokenizer.pad_token = tokenizer.eos_token  # トークナイザー安定化
 
 # 環境変数読み込み
 load_dotenv()
@@ -34,8 +40,14 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = f"地雷系で可愛いふわもこ共感！💖 ピンク、白、ぬいぐるみ、癒し！ 画像: {image_url or 'ふわもこ！'} テキスト: {text or 'モフモフ！🧸'} 言語: {lang}"
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=100)
-    outputs = model.generate(**inputs, max_new_tokens=40, pad_token_id=tokenizer.eos_token_id)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=100).to(model.device)
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=40,
+        pad_token_id=tokenizer.pad_token_id,
+        do_sample=True,
+        temperature=0.7
+    )
     reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
     if reply.startswith("地雷系") or reply == prompt:
         reply = None
