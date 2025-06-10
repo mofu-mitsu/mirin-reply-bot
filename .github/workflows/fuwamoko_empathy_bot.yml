@@ -11,6 +11,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Debug directory contents
+        run: |
+          pwd
+          ls -la
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
