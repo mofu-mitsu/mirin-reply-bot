@@ -24,12 +24,13 @@ logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime
 
 # 🔽 🧠 Transformers用設定
 MODEL_NAME = "cyberagent/open-calm-small"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=".cache")
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=".cache", force_download=True)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     cache_dir=".cache",
     torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-    device_map="auto"
+    device_map="auto",
+    force_download=True
 )
 tokenizer.pad_token = tokenizer.eos_token
 
@@ -43,7 +44,7 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = "ふwaもこ！🧸"
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=20).to(model.device)
+    inputs = tokenizer(prompt + (text[:30] if text else ""), return_tensors="pt", truncation=True, max_length=50).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
@@ -55,7 +56,6 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.85
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        # プロンプト/入力文除外
         reply = re.sub(r'^(ふwaもこ！|モフモフ！|ふわもこ|モフモフ).*', '', reply, flags=re.IGNORECASE).strip()
         reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす).*', '', reply, flags=re.IGNORECASE).strip()
         print(f"DEBUG: AI generated reply: {reply}")
@@ -252,76 +252,49 @@ def normalize_uri(uri):
 def load_fuwamoko_uris():
     global fuwamoko_uris
     fuwamoko_uris.clear()
-    for attempt in range(10):
-        lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=120.0)
+    if os.path.exists(FUWAMOKO_FILE):
         try:
-            with lock:
-                if os.path.exists(FUWAMOKO_FILE):
-                    with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        print(f"DEBUG: fuwamoko_empathy_uris.txt size: {len(content)} bytes")
-                        logging.debug(f"fuwamoko_empathy_uris.txt size: {len(content)} bytes")
-                        for line in content.splitlines():
-                            if line.strip():
-                                uri, timestamp = line.strip().split("|", 1)
-                                fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                    print(f"DEBUG: Loaded {len(fuwamoko_uris)} fuwamoko uris from {FUWAMOKO_FILE}")
-                    logging.debug(f"Loaded {len(fuwamoko_uris)} fuwamoko uris")
-                else:
-                    print(f"📂 {FUWAMOKO_FILE} が見つかりません。新規作成します")
-                    logging.debug(f"{FUWAMOKO_FILE} が見つかりません。新規作成")
-                    with open(FUWAMOKO_FILE, 'w', encoding='utf-8') as f:
-                        pass
-                return
-        except filelock.Timeout:
-            print(f"⚠️ ファイルロックタイムアウト（試行{attempt+1}/10）: {FUWAMOKO_FILE}")
-            logging.error(f"ファイルロックタイムアウト（試行{attempt+1}/10）: {FUWAMOKO_FILE}")
-            time.sleep(5 * (attempt + 1))  # 指数的バックオフ
+            with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
+                content = f.read()
+                print(f"DEBUG: fuwamoko_empathy_uris.txt size: {len(content)} bytes")
+                logging.debug(f"fuwamoko_empathy_uris.txt size: {len(content)} bytes")
+                for line in content.splitlines():
+                    if line.strip():
+                        uri, timestamp = line.strip().split("|", 1)
+                        fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            print(f"DEBUG: Loaded {len(fuwamoko_uris)} fuwamoko uris from {FUWAMOKO_FILE}")
+            logging.debug(f"Loaded {len(fuwamoko_uris)} fuwamoko uris")
         except Exception as e:
             print(f"⚠️ 履歴読み込みエラー: {e}")
             logging.error(f"履歴読み込みエラー: {e}")
-            return
-    print(f"⚠️ 履歴読み込み失敗（全試行終了）")
-    logging.error("履歴読み込み失敗（全試行終了）")
 
 def save_fuwamoko_uri(uri, indexed_at):
     normalized_uri = normalize_uri(uri)
-    for attempt in range(10):
-        lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=120.0)
-        try:
-            with lock:
-                if os.path.exists(FUWAMOKO_FILE):
-                    with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                    with open(FUWAMOKO_FILE + '.bak', 'w', encoding='utf-8') as f:
-                        f.write(content)
-                else:
-                    print(f"📂 {FUWAMOKO_FILE} 見つかりませんでした。")
-                    logging.debug(f"{FUWAMOKO_FILE} 見つかりませんでした。")
-                    with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
-                        pass
-                if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
-                    print(f"⏭️ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
-                    logging.debug(f"履歴保存スキップ（24時間以内）: {normalized_uri}")
-                    return
-                if isinstance(indexed_at, str):
-                    indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
-                with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
-                    f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
-                fuwamoko_uris[normalized_uri] = indexed_at
-                print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
-                logging.debug(f"履歴保存: {normalized_uri}")
-                load_fuwamoko_uris()
+    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)  # 10秒に短縮
+    try:
+        with lock:
+            if os.path.exists(FUWAMOKO_FILE):
+                with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                with open(FUWAMOKO_FILE + '.bak', 'w', encoding='utf-8') as f:
+                    f.write(content)
+            if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
+                print(f"⏭️ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
+                logging.debug(f"履歴保存スキップ（24時間以内）: {normalized_uri}")
                 return
-        except filelock.Timeout:
-            print(f"⚠️ ファイルロックタイムアウト（試行{attempt+1}/10）: {FUWAMOKO_FILE}")
-            logging.error(f"ファイルロックタイムアウト（試行{attempt+1}/10）: {FUWAMOKO_FILE}")
-            time.sleep(5 * (attempt + 1))  # 指数的バックオフ
-        except Exception as e:
-            print(f"⚠️ 履歴保存エラー: {e}")
-            logging.error(f"履歴保存エラー: {e}")
-    print(f"⚠️ 履歴保存失敗（全試行終了）: {normalized_uri}")
-    logging.error(f"履歴保存失敗: {normalized_uri}")
+            if isinstance(indexed_at, str):
+                indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
+            with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
+                f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
+            fuwamoko_uris[normalized_uri] = indexed_at
+            print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
+            logging.debug(f"履歴保存: {normalized_uri}")
+    except filelock.Timeout:
+        print(f"⚠️ ファイルロックタイムアウト: {FUWAMOKO_FILE}")
+        logging.error(f"ファイルロックタイムアウト: {FUWAMOKO_FILE}")
+    except Exception as e:
+        print(f"⚠️ 履歴保存エラー: {e}")
+        logging.error(f"履歴保存エラー: {e}")
 
 def load_session_string():
     try:
@@ -348,7 +321,6 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         
-        # スキップ条件チェック
         print(f"DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         if uri in fuwamoko_uris:
@@ -395,11 +367,6 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             image_data = image_data_list[0]
             if process_image(image_data, text, client=client, post=post):
                 if random.random() < 0.5:
-                    load_fuwamoko_uris()  # リプ前履歴再確認
-                    if uri in fuwamoko_uris:
-                        print(f"⏭️ 再確認で既存リプ検出: {post_id}")
-                        logging.debug(f"再確認で既存リプ: {post_id}")
-                        return False
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
                     reply_ref = models.AppBskyFeedPost.ReplyRef(
