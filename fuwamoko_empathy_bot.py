@@ -1,4 +1,4 @@
-# 🔽 📦 Pythonの標準ライブラリ
+　# 🔽 📦 Pythonの標準ライブラリ
 from datetime import datetime, timezone
 import os
 import time
