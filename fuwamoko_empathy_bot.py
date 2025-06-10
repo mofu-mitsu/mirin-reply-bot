@@ -21,7 +21,7 @@ from atproto import Client, models
 
 # ロギング設定
 logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
-logging.getLogger().addHandler(logging.StreamHandler())  # コンソール出力追加
+logging.getLogger().addHandler(logging.StreamHandler())  # コンソール出力
 
 # 🔽 🧠 Transformers用設定
 MODEL_NAME = "cyberagent/open-calm-small"
@@ -45,28 +45,28 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = "ふwaもこ！🧸"
-    inputs = tokenizer(prompt + (text[:40] if text else ""), return_tensors="pt", truncation=True, max_length=80).to(model.device)
+    inputs = tokenizer(prompt + (text[:40] if text else ""), return_tensors="pt", truncation=True, max_length=100).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=15,
+            max_new_tokens=20,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.9,
-            top_k=30,
-            top_p=0.85
+            temperature=0.7,  # 少し安定化
+            top_k=40,
+            top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
         reply = re.sub(r'^(ふwaもこ！|モフモフ！|ふわもこ|モフモフ).*', '', reply, flags=re.IGNORECASE).strip()
-        reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす|6月24日).*', '', reply, flags=re.IGNORECASE).strip()
-        print(f"DEBUG: AI generated reply: {reply}")
+        reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす|6月24日|5月15日).*', '', reply, flags=re.IGNORECASE).strip()
+        print(f"🛠️ DEBUG: AI generated reply: {reply}")
         logging.debug(f"AI generated reply: {reply}")
         if not reply or len(reply) < 3 or any(kw in reply.lower() for kw in ["ふわもこ", "モフモフ"]):
-            print("DEBUG: AI reply invalid, using template")
+            print("🛠️ DEBUG: AI reply invalid, using template")
             logging.debug("AI reply invalid, using template")
             reply = None
     except Exception as e:
-        print(f"⚠️ AI生成エラー: {e}")
+        print(f"⚠️ ERROR: AI生成エラー: {e}")
         logging.error(f"AI生成エラー: {e}")
         reply = None
     
@@ -106,7 +106,7 @@ def is_mutual_follow(client, handle):
         my_following = {f.handle for f in my_follows}
         return HANDLE in their_following and handle in my_following
     except Exception as e:
-        print(f"⚠️ 相互フォロー判定エラー: {e}")
+        print(f"⚠️ ERROR: 相互フォロー判定エラー: {e}")
         logging.error(f"相互フォロー判定エラー: {e}")
         return False
 
@@ -123,7 +123,7 @@ def download_image_from_blob(cid, client, did=None):
         try:
             response = requests.get(url, stream=True, timeout=10, headers=headers)
             response.raise_for_status()
-            print("✅ CDN画像取得成功！")
+            print("✅ SUCCESS: CDN画像取得成功！")
             logging.debug("CDN画像取得成功")
             return Image.open(BytesIO(response.content))
         except requests.exceptions.RequestException:
@@ -132,13 +132,13 @@ def download_image_from_blob(cid, client, did=None):
     if client and did:
         try:
             blob = client.com.atproto.repo.get_blob(did=did, cid=cid)
-            print("✅ Blob API画像取得成功！")
+            print("✅ SUCCESS: Blob API画像取得成功！")
             logging.debug("Blob API画像取得成功")
             return Image.open(BytesIO(blob.data))
         except Exception:
             pass
     
-    print("❌ 画像取得失敗")
+    print("❌ ERROR: 画像取得失敗")
     logging.debug("画像取得失敗")
     return None
 
@@ -168,20 +168,20 @@ def process_image(image_data, text="", client=None, post=None):
                (r > 150 and g < 100 and b > 100):
                 fluffy_count += 1
         if fluffy_count >= 1:
-            print("🎉 ふわもこ色検出！")
+            print("🎉 SUCCESS: ふわもこ色検出！")
             logging.debug("ふわもこ色検出")
             return True
 
         check_text = text.lower()
         keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft", "もふもふ", "愛しい", "癒し", "たまらん", "adorable"]
         if any(keyword in check_text for keyword in keywords):
-            print("🎉 キーワード検出！")
+            print("🎉 SUCCESS: キーワード検出！")
             logging.debug("キーワード検出")
             return True
 
         return False
     except Exception as e:
-        print(f"⚠️ 画像解析エラー: {e}")
+        print(f"⚠️ ERROR: 画像解析エラー: {e}")
         logging.error(f"画像解析エラー: {e}")
         return False
 
@@ -190,19 +190,19 @@ def is_quoted_repost(post):
         actual_post_record = post.post.record if hasattr(post, 'post') else post.record
         if hasattr(actual_post_record, 'embed') and actual_post_record.embed:
             embed = actual_post_record.embed
-            print(f"DEBUG: Checking embed for quoted repost: {embed}")
+            print(f"🛠️ DEBUG: Checking embed for quoted repost: {embed}")
             logging.debug(f"Checking embed for quoted repost: {embed}")
             if hasattr(embed, 'record') and embed.record:
-                print("DEBUG: Found quoted repost (record)")
+                print("🛠️ DEBUG: Found quoted repost (record)")
                 logging.debug("Found quoted repost (record)")
                 return True
             elif hasattr(embed, 'record') and hasattr(embed.record, 'record') and embed.record.record:
-                print("DEBUG: Found quoted repost (recordWithMedia)")
+                print("🛠️ DEBUG: Found quoted repost (recordWithMedia)")
                 logging.debug("Found quoted repost (recordWithMedia)")
                 return True
         return False
     except Exception as e:
-        print(f"⚠️ 引用リポストチェックエラー: {e}")
+        print(f"⚠️ ERROR: 引用リポストチェックエラー: {e}")
         logging.error(f"引用リポストチェックエラー: {e}")
         return False
 
@@ -212,11 +212,11 @@ def load_reposted_uris_for_check():
         try:
             with open(REPOSTED_FILE, 'r', encoding='utf-8') as f:
                 uris = set(line.strip() for line in f if line.strip())
-                print(f"✅ 読み込んだ reposted_uris: {len(uris)}件")
+                print(f"✅ SUCCESS: 読み込んだ reposted_uris: {len(uris)}件")
                 logging.debug(f"読み込んだ reposted_uris: {len(uris)}件")
                 return uris
         except Exception as e:
-            print(f"⚠️ reposted_uris読み込みエラー: {e}")
+            print(f"⚠️ ERROR: reposted_uris読み込みエラー: {e}")
             logging.error(f"reposted_uris読み込みエラー: {e}")
             return set()
     return set()
@@ -231,7 +231,7 @@ def detect_language(client, handle):
             return "en"
         return "ja"
     except Exception as e:
-        print(f"⚠️ 言語判定エラー: {e}")
+        print(f"⚠️ ERROR: 言語判定エラー: {e}")
         logging.error(f"言語判定エラー: {e}")
         return "ja"
 
@@ -246,7 +246,7 @@ def normalize_uri(uri):
             return f"at://{parts[2]}/{parts[3]}/{parts[4]}"
         return uri
     except Exception as e:
-        print(f"⚠️ URI正規化エラー: {e}")
+        print(f"⚠️ ERROR: URI正規化エラー: {e}")
         logging.error(f"URI正規化エラー: {e}")
         return uri
 
@@ -257,19 +257,21 @@ def load_fuwamoko_uris():
         try:
             with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
                 content = f.read()
-                print(f"DEBUG: fuwamoko_empathy_uris.txt size: {len(content)} bytes")
+                print(f"📦 INFO: fuwamoko_empathy_uris.txt size: {len(content)} bytes")
                 logging.debug(f"fuwamoko_empathy_uris.txt size: {len(content)} bytes")
-                for line in content.splitlines():
-                    if line.strip():
-                        uri, timestamp = line.strip().split("|", 1)
-                        fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            print(f"DEBUG: Loaded {len(fuwamoko_uris)} fuwamoko uris from {FUWAMOKO_FILE}")
-            logging.debug(f"Loaded {len(fuwamoko_uris)} fuwamoko uris")
+                if content.strip():  # 空でない場合のみ処理
+                    for line in content.splitlines():
+                        if line.strip():
+                            uri, timestamp = line.strip().split("|", 1)
+                            fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                print(f"📦 INFO: Loaded {len(fuwamoko_uris)} fuwamoko uris from {FUWAMOKO_FILE}")
+                logging.debug(f"Loaded {len(fuwamoko_uris)} fuwamoko uris")
         except Exception as e:
-            print(f"⚠️ 履歴読み込みエラー: {e}")
+            print(f"⚠️ ERROR: 履歴読み込みエラー: {e}")
             logging.error(f"履歴読み込みエラー: {e}")
 
 def save_fuwamoko_uri(uri, indexed_at):
+    global fuwamoko_uris
     normalized_uri = normalize_uri(uri)
     lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
     try:
@@ -280,7 +282,7 @@ def save_fuwamoko_uri(uri, indexed_at):
                 with open(FUWAMOKO_FILE + '.bak', 'w', encoding='utf-8') as f:
                     f.write(content)
             if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
-                print(f"⏭️ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
+                print(f"⏭️ SKIP: 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
                 logging.debug(f"履歴保存スキップ（24時間以内）: {normalized_uri}")
                 return
             if isinstance(indexed_at, str):
@@ -288,13 +290,14 @@ def save_fuwamoko_uri(uri, indexed_at):
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             fuwamoko_uris[normalized_uri] = indexed_at
-            print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
+            print(f"💾 SUCCESS: 履歴保存: {normalized_uri.split('/')[-1]}")
             logging.debug(f"履歴保存: {normalized_uri}")
+            load_fuwamoko_uris()  # 保存後に即再読み込み
     except filelock.Timeout:
-        print(f"⚠️ ファイルロックタイムアウト: {FUWAMOKO_FILE}")
-        logging.error(f"ファイルロックタイムアウト: {FUWAMOKO_FILE}")
+        print(f"⚠️ ERROR: ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
+        logging.error(f"ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
     except Exception as e:
-        print(f"⚠️ 履歴保存エラー: {e}")
+        print(f"⚠️ ERROR: 履歴保存エラー: {e}")
         logging.error(f"履歴保存エラー: {e}")
 
 def load_session_string():
@@ -304,7 +307,7 @@ def load_session_string():
                 return f.read().strip()
         return None
     except Exception as e:
-        print(f"⚠️ セッション文字列読み込みエラー: {e}")
+        print(f"⚠️ ERROR: セッション文字列読み込みエラー: {e}")
         logging.error(f"セッション文字列読み込みエラー: {e}")
         return None
 
@@ -313,7 +316,7 @@ def save_session_string(session_str):
         with open(SESSION_FILE, 'w', encoding='utf-8') as f:
             f.write(session_str)
     except Exception as e:
-        print(f"⚠️ セッション文字列保存エラー: {e}")
+        print(f"⚠️ ERROR: セッション文字列保存エラー: {e}")
         logging.error(f"セッション文字列保存エラー: {e}")
 
 def process_post(post, client, fuwamoko_uris, reposted_uris):
@@ -322,23 +325,22 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         
-        print(f"DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
+        print(f"🛠️ DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
-        load_fuwamoko_uris()  # リプ前再読み込み復活
         if uri in fuwamoko_uris:
-            print(f"⏭️ 既に返信済みの投稿なのでスキップ: {post_id}")
+            print(f"⏭️ SKIP: 既に返信済みの投稿なのでスキップ: {post_id}")
             logging.debug(f"既に返信済みの投稿: {post_id}")
             return False
         if actual_post.author.handle == HANDLE:
-            print(f"⏭️ 自分の投稿なのでスキップ: {post_id} (Author: @{actual_post.author.handle})")
+            print(f"⏭️ SKIP: 自分の投稿なのでスキップ: {post_id} (Author: @{actual_post.author.handle})")
             logging.debug(f"自分の投稿: {post_id} (Author: @{actual_post.author.handle})")
             return False
         if is_quoted_repost(post):
-            print(f"⏭️ 引用リポストなのでスキップ: {post_id}")
+            print(f"⏭️ SKIP: 引用リポストなのでスキップ: {post_id}")
             logging.debug(f"引用リポスト: {post_id}")
             return False
         if post_id in reposted_uris:
-            print(f"⏭️ リポスト済みURIなのでスキップ: {post_id}")
+            print(f"⏭️ SKIP: リポスト済みURIなのでスキップ: {post_id}")
             logging.debug(f"リポスト済みURI: {post_id}")
             return False
 
@@ -356,12 +358,12 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
                 image_data_list = embed.media.images
         else:
-            print(f"⏭️ 画像なしなのでスキップ: {post_id}")
+            print(f"⏭️ SKIP: 画像なしなのでスキップ: {post_id}")
             logging.debug(f"画像なし: {post_id}")
             return False
 
         if not is_mutual_follow(client, author):
-            print(f"⏭️ 非相互フォローなのでスキップ: {post_id} (Author: @{author})")
+            print(f"⏭️ SKIP: 非相互フォローなのでスキップ: {post_id} (Author: @{author})")
             logging.debug(f"非相互フォロー: {post_id} (Author: @{author})")
             return False
 
@@ -375,25 +377,25 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                         root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
                         parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
                     )
-                    print(f"DEBUG: Sending post to @{author} with text: {reply_text}")
+                    print(f"🛠️ DEBUG: Sending post to @{author} with text: {reply_text}")
                     logging.debug(f"Sending post to @{author} with text: {reply_text}")
                     client.send_post(
                         text=reply_text,
                         reply_to=reply_ref
                     )
                     save_fuwamoko_uri(uri, indexed_at)
-                    print(f"✅ 返信しました → @{author}")
+                    print(f"✅ SUCCESS: 返信しました → @{author}")
                     logging.debug(f"返信成功: @{author}")
                     return True
                 else:
-                    print(f"⏭️ ランダムスキップ（確率50%）: {post_id}")
+                    print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
                     logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
             else:
-                print(f"⏭️ ふわもこ画像でないのでスキップ: {post_id}")
+                print(f"⏭️ SKIP: ふわもこ画像でないのでスキップ: {post_id}")
                 logging.debug(f"ふわもこ画像でない: {post_id}")
         return False
     except Exception as e:
-        print(f"⚠️ 投稿処理エラー: {e}")
+        print(f"⚠️ ERROR: 投稿処理エラー: {e}")
         logging.error(f"投稿処理エラー: {e}")
         return False
 
@@ -403,16 +405,16 @@ def run_once():
         session_str = load_session_string()
         if session_str:
             client.login(session_string=session_str)
-            print(f"📨 ふわもこBot起動！ セッション再利用")
+            print(f"🚀 START: ふわもこBot起動！ セッション再利用")
             logging.info("Bot started: session reuse")
         else:
             client.login(HANDLE, APP_PASSWORD)
             session_str = client.export_session_string()
             save_session_string(session_str)
-            print(f"📨 ふわもこBot起動！ 新規セッション")
+            print(f"🚀 START: ふわもこBot起動！ 新規セッション")
             logging.info("Bot started: new session")
 
-        print(f"DEBUG: Bot HANDLE={HANDLE}")
+        print(f"🛠️ DEBUG: Bot HANDLE={HANDLE}")
         logging.debug(f"Bot HANDLE={HANDLE}")
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
@@ -424,12 +426,12 @@ def run_once():
                 thread_response = client.get_post_thread(uri=str(post.post.uri), depth=2)
                 process_post(thread_response.thread, client, fuwamoko_uris, reposted_uris)
             except Exception as e:
-                print(f"⚠️ get_post_threadエラー: {e} (URI: {post.post.uri})")
+                print(f"⚠️ ERROR: get_post_threadエラー: {e} (URI: {post.post.uri})")
                 logging.error(f"get_post_threadエラー: {e} (URI: {post.post.uri})")
             time.sleep(random.uniform(2, 5))
 
     except Exception as e:
-        print(f"⚠️ 実行エラー: {e}")
+        print(f"⚠️ ERROR: 実行エラー: {e}")
         logging.error(f"実行エラー: {e}")
 
 if __name__ == "__main__":
