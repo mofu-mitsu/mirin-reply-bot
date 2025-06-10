@@ -34,7 +34,7 @@ jobs:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |
-          python fuwamoko_empathy_bot.py  # ログ直接出力
+          python fuwamoko_empathy_bot.py
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
