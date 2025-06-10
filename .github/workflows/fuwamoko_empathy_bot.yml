@@ -1,9 +1,5 @@
 name: Fuwamoko Empathy Bot
 on:
-  schedule:
-    - cron: '0 */2 * * *'
-  push:
-    branches: [main]
   workflow_dispatch:
 concurrency:
   group: fuwamoko-empathy
