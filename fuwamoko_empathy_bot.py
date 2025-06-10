@@ -44,29 +44,34 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    instruction = "あなたはかわいいふわもこBotです。以下の投稿について、共感して短く日本語で返信してください。絵文字は1〜2個以内にしてください。"
-    prompt = f"{instruction} ユーザーの投稿: {text[:80]} ふwaもこ！🧸"
+    instruction = (
+        "あなたはふわもこ系のやさしいBotです。"
+        "以下のユーザーの投稿に、親しみやすく共感して短く返信してください。"
+        "返信にはかわいい絵文字を1つか2つ入れてください。"
+        "返信はカジュアルで口語的な日本語にしてください。"
+    )
+    prompt = f"{instruction}\n投稿:「{text[:80]}」\n返事: "
     
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=120).to(model.device)  # max_length調整
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=60,  # 増やして自然な出力に
+            max_new_tokens=60,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,  # 少し安定化
+            temperature=0.7,
             top_k=40,
             top_p=0.9
         )
-        reply = tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
-        reply = re.sub(r'^(あなたはかわいいふわもこBotです。以下の投稿について、共感して短く日本語で返信してください。絵文字は1〜2個以内にしてください。|ユーザーの投稿:.*?|ふwaもこ！🧸|\s)*', '', reply, flags=re.IGNORECASE).strip()
-        reply = re.sub(r'\b(ちなみに|最近|Twitterに|ツイッターやっていますか|投稿を頻繁に見かけるようになりました|好きなものを好きなように食べればいいんじゃないの|いいじゃないですか|好きなものを|です|ます|の|。|、|\s)*', '', reply, flags=re.IGNORECASE).strip()
-        reply = re.sub(r'🧸{3,}|�', '', reply)  # 絵文字過多・文字化け除去
+        reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        reply = re.sub(r'^.*?返事:\s*', '', reply)  # 「返事:」から抜き出し
+        reply = re.sub(r'🧸{3,}|�|■.*?■', '', reply)  # 過多・文字化け除去
+        reply = reply.strip()
         print(f"🛠️ DEBUG: AI generated reply: {reply}")
         logging.debug(f"AI generated reply: {reply}")
-        if not reply or len(reply) < 5 or len(re.findall(r'🧸', reply)) > 2:
-            print("🛠️ DEBUG: AI reply invalid or too short/too many emojis, using template")
-            logging.debug("AI reply invalid or too short/too many emojis, using template")
+        if not reply or len(reply) < 4 or "漫画家の顔" in reply or "管制官" in reply:
+            print("🛠️ DEBUG: AI reply invalid, using template")
+            logging.debug("AI reply invalid, using template")
             reply = None
     except Exception as e:
         print(f"⚠️ ERROR: AI生成エラー: {e}")
