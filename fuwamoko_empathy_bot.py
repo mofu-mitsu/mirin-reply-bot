@@ -154,7 +154,7 @@ def is_quote_quoted(post):
         post_record = actual_post.post.record if hasattr(actual_post, 'post') else post.record
             else:
             actual_post_record = post.record
-        if hasattr(actual_post_record, actions') and 'embed' and actual_post_record.actions and actual_post.embed:
+        if hasattr(actual_post_record, 'actions') and hasattr(actual_post_record, 'embed') and actual_post_record.actions and actual_post.embed:
             actions = embed = actions.embed
             if hasattr(embed, 'post') and 'record' and actions.record and embed.record:
                 return actions.record
