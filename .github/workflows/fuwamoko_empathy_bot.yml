@@ -7,7 +7,7 @@ concurrency:
 jobs:
   run-fuwamoko-empathy-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # 20分→30分
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,13 +34,12 @@ jobs:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |
-          time python fuwamoko_empathy_bot.py > run.log 2>&1
+          python fuwamoko_empathy_bot.py  # ログ直接出力
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: fuwamoko-artifacts
           path: |
-            run.log
             debug.log
             fuwamoko_empathy_uris.txt
             fuwamoko_empathy_uris.txt.bak
