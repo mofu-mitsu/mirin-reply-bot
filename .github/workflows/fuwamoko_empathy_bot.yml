@@ -11,11 +11,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Cache fuwamoko_empathy_uris.txt
+      - name: Restore fuwamoko_empathy_uris.txt cache
         uses: actions/cache@v4
         with:
           path: fuwamoko_empathy_uris.txt
-          key: ${{ runner.os }}-fuwamoko-uris-${{ hashFiles('fuwamoko_empathy_uris.txt') }}
+          key: ${{ runner.os }}-fuwamoko-uris-latest
           restore-keys: |
             ${{ runner.os }}-fuwamoko-uris-
       - name: Debug directory contents
@@ -35,7 +35,7 @@ jobs:
           pip install -r requirements.txt
       - name: Preload open-calm-small
         run: |
-          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', torch_dtype='auto', force_download=True); AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', force_download=True)"
+          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCalm.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', torch_dtype='auto', force_download=True); AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', force_download=True)"
       - name: Run Fuwamoko Bot
         env:
           HANDLE: ${{ secrets.HANDLE }}
