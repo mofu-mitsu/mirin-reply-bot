@@ -6,7 +6,7 @@ import time
 import random
 import requests
 from io import BytesIO
-import filelock  # 新規追加
+import filelock
 
 # 🔽 🌱 外部ライブラリ
 from dotenv import load_dotenv
@@ -33,20 +33,22 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    prompt = f"""【トーン】地雷系で可愛く、ENFPらしいテンション高め！💖
-【テーマ】ふわもこ、ぬいぐるみ、ピンク、白、癒し、モチモチ！
-【指示】: 画像がなくてもふわもこ感全開の返信を生成。テキストが空なら画像の雰囲気だけで返答。
+    prompt = f"""地雷系で可愛い、ENFPらしいテンション高めのふわもこ共感！💖
+テーマ: ふわもこ、ぬいぐるみ、ピンク、白、癒し、モチモチ
 画像: {image_url or 'ピンクと白のふわもこ！'}
 テキスト: {text or 'モフモフすぎて秒で刺さった！🧸'}
 言語: {lang}"""
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
-    outputs = model.generate(**inputs, max_length=50, num_return_sequences=1)
-    reply = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return reply or random.choice([
-        "え、待って！このふわもこ、完全にみりんてゃの心臓直撃なんだけど！🧸💥 #地雷系ENFP",
-        "ピンクと白のモフモフ！秒で沼落ちした…ぬいとお揃いじゃん！💖 #ふわもこ信者",
-        "うわぁ！この癒し系、みりんてゃの魂揺さぶる！もっかい見せて！🌸 #自撮りとぬいは正義"
-    ])
+    outputs = model.generate(**inputs, max_length=60, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
+    reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+    # プロンプトがそのまま返されるのを防ぐ
+    if reply.startswith("地雷系") or reply == prompt:
+        reply = None
+    return reply or ("え、待って！このふわもこ、完全にみりんてゃの心臓直撃なんだけど！🧸💥" if lang == "ja" else random.choice([
+        "Wow! So fluffy~ Mirin is totally obsessed! 💕",
+        "Oh my! This cuteness is killing me~ Mirin loves it! 🥰",
+        "Amazing! These fluffy vibes are healing my soul! 🌸"
+    ]))
 
 def is_mutual_follow(client, handle):
     try:
@@ -237,6 +239,9 @@ def save_fuwamoko_uri(uri, indexed_at):
             print(f"⩗ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
             return
         try:
+            # indexed_atが文字列ならdatetimeに変換
+            if isinstance(indexed_at, str):
+                indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             fuwamoko_uris[normalized_uri] = indexed_at
@@ -341,7 +346,7 @@ def run_once():
             save_session_string(session_str)
             print(f"📨 ふわもこBot起動！ 新規セッション")
 
-        load_fuwamoko_uris()
+        load_fuwamoko_uris()  # 開始時に履歴読み込み
         reposted_uris = load_reposted_uris_for_check()
 
         target_post_uri = "at://did:plc:lmntwwwhxvedq3r4retqishb/app.bsky.feed.post/3lr6hwd3a2c2k"
