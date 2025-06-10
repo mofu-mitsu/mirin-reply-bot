@@ -8,22 +8,15 @@ jobs:
   run-fuwamoko-empathy-bot:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write  # Gitコミットの権限
+      actions: write   # Actions操作
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Restore fuwamoko_empathy_uris.txt cache
-        uses: actions/cache@v4
         with:
-          path: fuwamoko_empathy_uris.txt
-          key: ${{ runner.os }}-fuwamoko-uris-latest
-          restore-keys: |
-            ${{ runner.os }}-fuwamoko-uris-
-      - name: Debug directory contents
-        run: |
-          pwd
-          ls -la
-          cat fuwamoko_empathy_uris.txt || echo "No uris file"
-          cat fuwamoko_empathy_uris.txt.bak || echo "No backup file"
+          ref: main
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -42,11 +35,17 @@ jobs:
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |
           python fuwamoko_empathy_bot.py
-      - name: Upload artifacts
+      - name: Commit fuwamoko_empathy_uris.txt
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add fuwamoko_empathy_uris.txt
+          git commit -m "Update fuwamoko_empathy_uris.txt" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:fuwamoko-history --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload debug log
         uses: actions/upload-artifact@v4
         with:
-          name: fuwamoko-artifacts
-          path: |
-            debug.log
-            fuwamoko_empathy_uris.txt
-            fuwamoko_empathy_uris.txt.bak
+          name: debug-log
+          path: debug.log
