@@ -226,7 +226,7 @@ def load_fuwamoko_uris():
                 with open(FUWAMOKO_FILE, 'w', encoding='utf-8') as f:
                     pass
     except filelock.Timeout:
-        print("⚠️ ファイルロックタイムアウト: {FUWAMOKO_FILE}")
+        print(f"⚠️ ファイルロックタイムアウト: {FUWAMOKO_FILE}")
     except Exception as e:
         print(f"⚠️ 履歴読み込みエラー: {e}")
 
@@ -235,14 +235,14 @@ def save_fuwamoko_uri(uri, indexed_at):
     lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
     try:
         with lock:
-            if normalized_uri in fuwamo_wamoko_uris and (datetime.now(timezone.utc) - fuwamo_wamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
-                print(f"⩗ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
+            if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
+                print(f"⏭️ 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
                 return
             if isinstance(indexed_at, str):
                 indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
-            fuwamo_wamoko_uris[normalized_uri] = indexed_at
+            fuwamoko_uris[normalized_uri] = indexed_at
             print(f"💾 履歴保存: {normalized_uri.split('/')[-1]}")
             load_fuwamoko_uris()
     except filelock.Timeout:
@@ -267,18 +267,27 @@ def save_session_string(session_str):
     except Exception as e:
         print(f"⚠️ セッション文字列保存エラー: {e}")
 
-def process_post(post, client, fuwamo_wamoko_uris, reposted_uris):
+def process_post(post, client, fuwamoko_uris, reposted_uris):
     try:
         actual_post = post.post if hasattr(post, 'post') else post
-        if str(actual_post.uri) in fuwamo_wamoko_uris or \
-           actual_post.author.handle == HANDLE or \
-           is_quoted_repost(post) or \
-           str(actual_post.uri).split('/')[-1] in reposted_uris:
-            print(f"DEBUG: Skipping post {actual_post.uri.split('/')[-1]}")
+        uri = str(actual_post.uri)
+        post_id = uri.split('/')[-1]
+        
+        # スキップ条件チェック
+        if uri in fuwamoko_uris:
+            print(f"⏭️ 既に返信済みの投稿なのでスキップ: {post_id}")
+            return False
+        if actual_post.author.handle == HANDLE:
+            print(f"⏭️ 自分の投稿なのでスキップ: {post_id}")
+            return False
+        if is_quoted_repost(post):
+            print(f"⏭️ 引用リポストなのでスキップ: {post_id}")
+            return False
+        if post_id in reposted_uris:
+            print(f"⏭️ リポスト済みURIなのでスキップ: {post_id}")
             return False
 
         text = getattr(actual_post.record, "text", "")
-        uri = str(actual_post.uri)
         author = actual_post.author.handle
         embed = getattr(actual_post.record, "embed", None)
         indexed_at = actual_post.indexed_at
@@ -292,29 +301,35 @@ def process_post(post, client, fuwamo_wamoko_uris, reposted_uris):
             if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
                 image_data_list = embed.media.images
         else:
+            print(f"⏭️ 画像なしなのでスキップ: {post_id}")
             return False
 
         if not is_mutual_follow(client, author):
-            print(f"DEBUG: Skipping post from {author} (not mutual follow)")
+            print(f"⏭️ 非相互フォローなのでスキップ: {post_id}")
             return False
 
         if image_data_list:
             image_data = image_data_list[0]
-            if process_image(image_data, text, client=client, post=post) and random.random() < 0.5:
-                lang = detect_language(client, author)
-                reply_text = open_calm_reply("", text, lang=lang)
-                reply_ref = models.AppBskyFeedPost.ReplyRef(
-                    root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
-                    parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
-                )
-                print(f"DEBUG: Sending post to @{author} with text: {reply_text}")
-                client.send_post(
-                    text=reply_text,
-                    reply_to=reply_ref
-                )
-                save_fuwamoko_uri(uri, indexed_at)
-                print(f"✅ 返信しました → @{author}")
-                return True
+            if process_image(image_data, text, client=client, post=post):
+                if random.random() < 0.5:
+                    lang = detect_language(client, author)
+                    reply_text = open_calm_reply("", text, lang=lang)
+                    reply_ref = models.AppBskyFeedPost.ReplyRef(
+                        root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
+                        parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
+                    )
+                    print(f"DEBUG: Sending post to @{author} with text: {reply_text}")
+                    client.send_post(
+                        text=reply_text,
+                        reply_to=reply_ref
+                    )
+                    save_fuwamoko_uri(uri, indexed_at)
+                    print(f"✅ 返信しました → @{author}")
+                    return True
+                else:
+                    print(f"⏭️ ランダムスキップ（確率50%）: {post_id}")
+            else:
+                print(f"⏭️ ふわもこ画像でないのでスキップ: {post_id}")
         return False
     except Exception as e:
         print(f"⚠️ 投稿処理エラー: {e}")
@@ -336,18 +351,16 @@ def run_once():
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris_for_check()
 
-        target_post_uri = "at://did:plc:lmntwwwhxvedq3r4retqishb/app.bsky.feed.post/3lr6hwd3a2c2k"
-        try:
-            thread_response = client.get_post_thread(uri=target_post_uri, depth=2)
-            process_post(thread_response.thread, client, fuwamoko_uris, reposted_uris)
-        except Exception as e:
-            print(f"⚠️ Specific get_post_threadエラー: {e}")
-
+        # 動的URI取得（最新ポストを処理）
         timeline = client.get_timeline(limit=50)
         feed = timeline.feed
         for post in sorted(feed, key=lambda x: x.post.indexed_at, reverse=True):
+            try:
+                thread_response = client.get_post_thread(uri=str(post.post.uri), depth=2)
+                process_post(thread_response.thread, client, fuwamoko_uris, reposted_uris)
+            except Exception as e:
+                print(f"⚠️ get_post_threadエラー: {e} (URI: {post.post.uri})")
             time.sleep(random.uniform(2, 5))
-            process_post(post, client, fuwamoko_uris, reposted_uris)
 
     except Exception as e:
         print(f"⚠️ 実行エラー: {e}")
