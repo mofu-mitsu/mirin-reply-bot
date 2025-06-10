@@ -11,6 +11,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Cache fuwamoko_empathy_uris.txt
+        uses: actions/cache@v4
+        with:
+          path: fuwamoko_empathy_uris.txt
+          key: ${{ runner.os }}-fuwamoko-uris-${{ hashFiles('fuwamoko_empathy_uris.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-fuwamoko-uris-
       - name: Debug directory contents
         run: |
           pwd
