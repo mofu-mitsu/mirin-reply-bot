@@ -67,19 +67,15 @@ def is_mutual_follow(client, handle):
         return False
 
 def download_image_from_blob(cid, client, did=None):
-    cdn_urls = []
-    if did:
-        cdn_urls.extend([
-            f"https://cdn.bsky.app/img/feed_thumbnail/plain/{did}/{cid}@jpeg",
-            f"https://cdn.bsky.app/img/feed_full/plain/{did}/{cid}@jpeg",
-        ])
-    cdn_urls.extend([
+    cdn_urls = [
+        f"https://cdn.bsky.app/img/feed_thumbnail/plain/{did}/{cid}@jpeg" if did else None,
+        f"https://cdn.bsky.app/img/feed_full/plain/{did}/{cid}@jpeg" if did else None,
         f"https://cdn.bsky.app/img/feed_thumbnail/plain/{cid}@jpeg",
         f"https://cdn.bsky.app/img/feed_full/plain/{cid}@jpeg",
-    ])
+    ]
     headers = {'User-Agent': 'Mozilla/5.0'}
     
-    for url in cdn_urls:
+    for url in [u for u in cdn_urls if u]:
         try:
             response = requests.get(url, stream=True, timeout=10, headers=headers)
             response.raise_for_status()
@@ -279,9 +275,9 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                     root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
                     parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
                 )
+                print(f"DEBUG: Sending post to @{author} with text: {reply_text}")
                 client.send_post(
                     text=reply_text,
-                    created_at=datetime.now(timezone.utc).isoformat(),
                     reply=reply_ref
                 )
                 save_fuwamoko_uri(uri, indexed_at)
