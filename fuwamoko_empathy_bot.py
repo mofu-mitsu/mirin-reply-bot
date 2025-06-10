@@ -21,6 +21,7 @@ from atproto import Client, models
 
 # ロギング設定
 logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
+logging.getLogger().addHandler(logging.StreamHandler())  # コンソール出力追加
 
 # 🔽 🧠 Transformers用設定
 MODEL_NAME = "cyberagent/open-calm-small"
@@ -44,20 +45,20 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = "ふwaもこ！🧸"
-    inputs = tokenizer(prompt + (text[:30] if text else ""), return_tensors="pt", truncation=True, max_length=50).to(model.device)
+    inputs = tokenizer(prompt + (text[:40] if text else ""), return_tensors="pt", truncation=True, max_length=80).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=10,
+            max_new_tokens=15,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
             temperature=0.9,
             top_k=30,
             top_p=0.85
         )
-        reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        reply = tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
         reply = re.sub(r'^(ふwaもこ！|モフモフ！|ふわもこ|モフモフ).*', '', reply, flags=re.IGNORECASE).strip()
-        reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす).*', '', reply, flags=re.IGNORECASE).strip()
+        reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす|6月24日).*', '', reply, flags=re.IGNORECASE).strip()
         print(f"DEBUG: AI generated reply: {reply}")
         logging.debug(f"AI generated reply: {reply}")
         if not reply or len(reply) < 3 or any(kw in reply.lower() for kw in ["ふわもこ", "モフモフ"]):
@@ -270,7 +271,7 @@ def load_fuwamoko_uris():
 
 def save_fuwamoko_uri(uri, indexed_at):
     normalized_uri = normalize_uri(uri)
-    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)  # 10秒に短縮
+    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
     try:
         with lock:
             if os.path.exists(FUWAMOKO_FILE):
@@ -323,6 +324,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         
         print(f"DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
+        load_fuwamoko_uris()  # リプ前再読み込み復活
         if uri in fuwamoko_uris:
             print(f"⏭️ 既に返信済みの投稿なのでスキップ: {post_id}")
             logging.debug(f"既に返信済みの投稿: {post_id}")
