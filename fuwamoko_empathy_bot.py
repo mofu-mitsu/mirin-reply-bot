@@ -44,26 +44,30 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    prompt = "ふwaもこ！🧸"
-    inputs = tokenizer(prompt + (text[:40] if text else ""), return_tensors="pt", truncation=True, max_length=100).to(model.device)
+    user_input = f"ユーザーの投稿: {text[:80]}" if text else ""
+    instruction = "かわいいふわもこについて、共感して短く日本語で返信してください。絵文字も使って親しみやすく。"
+    prompt = f"ふwaもこ！🧸 {user_input} {instruction}"
+    
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=20,
+            max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,  # 少し安定化
-            top_k=40,
-            top_p=0.9
+            temperature=0.8,
+            top_k=50,
+            top_p=0.95
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True, clean_up_tokenization_spaces=True).strip()
-        reply = re.sub(r'^(ふwaもこ！|モフモフ！|ふわもこ|モフモフ).*', '', reply, flags=re.IGNORECASE).strip()
-        reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす|6月24日|5月15日).*', '', reply, flags=re.IGNORECASE).strip()
+        reply = reply.replace(prompt, "").strip()  # プロンプト除去
+        reply = re.sub(r'^(ふwaもこ！|モフモフ！|ふわもこ|モフモフ|です|ます|の|。|、|\s)*', '', reply, flags=re.IGNORECASE).strip()
+        reply = re.sub(r'\b(東京|ビックサイト|IFFT|うさぎ|2月|配信|おやす|6月24日|5月15日|この絵本は|子どもから大人まで楽しめる|絵本の読み聞かせ).*', '', reply, flags=re.IGNORECASE).strip()
         print(f"🛠️ DEBUG: AI generated reply: {reply}")
         logging.debug(f"AI generated reply: {reply}")
-        if not reply or len(reply) < 3 or any(kw in reply.lower() for kw in ["ふわもこ", "モフモフ"]):
-            print("🛠️ DEBUG: AI reply invalid, using template")
-            logging.debug("AI reply invalid, using template")
+        if not reply or len(reply) < 5 or any(kw in reply.lower() for kw in ["ふわもこ", "モフモフ", "ふwaもこ", "モフモコ", "。", "、"]):
+            print("🛠️ DEBUG: AI reply invalid or too short, using template")
+            logging.debug("AI reply invalid or too short, using template")
             reply = None
     except Exception as e:
         print(f"⚠️ ERROR: AI生成エラー: {e}")
