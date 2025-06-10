@@ -7,21 +7,16 @@ concurrency:
 jobs:
   run-fuwamoko-empathy-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20  # 10分→20分
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Restore fuwamoko uris cache
-        uses: actions/cache/restore@v4
-        with:
-          path: fuwamoko_empathy_uris.txt
-          key: ${{ runner.os }}-fuwamoko-uris-
-          restore-keys: ${{ runner.os }}-fuwamoko-uris-
       - name: Debug directory contents
         run: |
           pwd
           ls -la
           cat fuwamoko_empathy_uris.txt || echo "No uris file"
+          cat fuwamoko_empathy_uris.txt.bak || echo "No backup file"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -31,22 +26,21 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Cache HuggingFace model
-        uses: actions/cache@v4
-        with:
-          path: .cache
-          key: ${{ runner.os }}-huggingface-${{ hashFiles('requirements.txt') }}
-      - name: Preload open-calm-1b
+      - name: Preload open-calm-small
         run: |
-          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-1b', cache_dir='.cache', torch_dtype='auto'); AutoTokenizer.from_pretrained('cyberagent/open-calm-1b', cache_dir='.cache')"
+          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', torch_dtype='auto', force_download=True); AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', force_download=True)"
       - name: Run Fuwamoko Bot
         env:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |
-          time python fuwamoko_empathy_bot.py
-      - name: Upload fuwamoko uris
+          time python fuwamoko_empathy_bot.py > run.log 2>&1
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: fuwamoko-uris
-          path: fuwamoko_empathy_uris.txt
+          name: fuwamoko-artifacts
+          path: |
+            run.log
+            debug.log
+            fuwamoko_empathy_uris.txt
+            fuwamoko_empathy_uris.txt.bak
