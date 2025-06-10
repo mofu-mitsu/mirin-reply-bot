@@ -5,7 +5,7 @@ on:
 
 concurrency:
   group: fuwamoko-empathy
-  cancel-in-progress: false
+  cancel-in-progress: true  # 二重起動を防止
 
 jobs:
   run-fuwamoko-empathy-bot:
@@ -15,14 +15,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Clear HuggingFace cache
-        run: |
-          rm -rf ~/.cache/huggingface
-
-      - name: Clear pip cache
-        run: |
-          pip cache purge
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -34,15 +26,21 @@ jobs:
           pip install --upgrade pip
           pip install torch==2.0.1 transformers==4.36.2 psutil==5.9.8 sentencepiece==0.2.0
           pip install -U accelerate
-          pip install atproto requests dotenv  # open-calm-1b用追加
-          pip install pillow requests          # ←これを追加！
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install atproto requests python-dotenv pillow
+
+      - name: Preload open-calm-small model
+        run: |
+          python -c "
+          from transformers import AutoModelForCausalLM, AutoTokenizer;
+          model = AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache');
+          tokenizer = AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache');
+          print('Model and tokenizer preloaded!');
+          "
 
       - name: Run Fuwamoko Empathy Bot
         env:
           HANDLE: ${{ secrets.HANDLE }}
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
           python fuwamoko_empathy_bot.py
