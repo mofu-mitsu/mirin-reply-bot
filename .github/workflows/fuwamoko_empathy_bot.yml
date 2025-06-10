@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install torch==2.0.1 transformers==4.36.2 filelock==3.15.4 atproto==0.0.4 atproto_client==0.0.4 requests==2.32.3 pillow==10.4.0 python-dotenv==1.0.1
+          pip install -r requirements.txt
       - name: Cache HuggingFace models
         uses: actions/cache@v4
         with:
@@ -27,7 +27,7 @@ jobs:
           key: ${{ runner.os }}-huggingface-${{ hashFiles('requirements.txt') }}
       - name: Preload open-calm-small model
         run: |
-          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', torch_dtype='auto', device_map='auto'); AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache')"
+          python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; AutoModelForCausalLM.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache', torch_dtype='auto'); AutoTokenizer.from_pretrained('cyberagent/open-calm-small', cache_dir='.cache')"
       - name: Run Fuwamoko Empathy Bot
         env:
           HANDLE: ${{ secrets.HANDLE }}
