@@ -502,7 +502,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                 image_data_list = embed.images
             elif hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images'):
                 image_data_list = embed.record.embed.images
-            elif hasattr(embed, '$type') and embed.$type == 'app.bsky.embed.recordWithMedia':
+            elif getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia':
                 if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
                     image_data_list = embed.media.images
 
