@@ -57,8 +57,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                   "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
                   "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish",
                   "ラーメン", "うどん", "そば", "スープ", "味噌汁", "カルボナーラ",
-                  "鍋", "麺", "パン", "トースト", "カフェ", "デザート", "スイーツ", 
-                  "プリン", "クレープ", "ケーキ", "クリーム", "チョコ", "アイス", "ジュース", 
+                  "鍋", "麺", "パン", "トースト", "カフェ", "ジュース", 
                   "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
                   "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"]
     SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
@@ -457,13 +456,13 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         
-        # テキストの初期化（エラー対策）
-        text = getattr(actual_post, 'record', {}).get("text", "")
+        # テキストの初期化（エラー対策）を修正
+        text = getattr(actual_post.record, "text", "") if hasattr(actual_post, 'record') and hasattr(actual_post.record, 'text') else ""
 
         # リプライチェック
-        is_reply = getattr(actual_post, 'record', {}).get("reply", None) is not None
+        is_reply = getattr(actual_post.record, "reply", None) is not None if hasattr(actual_post, 'record') else False
         if is_reply and not (is_priority_post(text) or is_reply_to_self(post)):
-            print(f"⏩ リプライスキップ (非@mirinchuuu/非自分宛, reply={getattr(actual_post.record, 'reply', None)}): {text[:40]}")
+            print(f"⏩ リプライスキップ (非@mirinchuuu/非自分宛): {text[:40]}")
             logging.debug(f"リプライスキップ: {post_id}")
             return False
 
@@ -495,14 +494,17 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             return False
 
         image_data_list = []
-        embed = getattr(actual_post, 'record', {}).get('embed', None)
-        if embed and hasattr(embed, 'images') and embed.images:
-            image_data_list = embed.images
-        elif embed and hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images'):
-            image_data_list = embed.record.embed.images
-        elif embed and embed.get('$type') == 'app.bsky.embed.recordWithMedia':
-            if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
-                image_data_list = embed.media.images
+        # embed の取得も修正
+        embed = getattr(actual_post.record, 'embed', None) if hasattr(actual_post, 'record') and hasattr(actual_post.record, 'embed') else None
+
+        if embed:
+            if hasattr(embed, 'images') and embed.images:
+                image_data_list = embed.images
+            elif hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images'):
+                image_data_list = embed.record.embed.images
+            elif hasattr(embed, '$type') and embed.$type == 'app.bsky.embed.recordWithMedia':
+                if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
+                    image_data_list = embed.media.images
 
         if not is_mutual_follow(client, author):
             print(f"⏭️ SKIP: 非相互フォローなのでスキップ: {post_id} (Author: @{author})")
