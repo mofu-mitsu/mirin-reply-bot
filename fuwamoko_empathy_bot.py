@@ -22,7 +22,7 @@ import torch
 from atproto import Client, models
 
 # ロギング設定
-logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s %(message)s', encoding='utf-8')
 logging.getLogger().addHandler(logging.StreamHandler())  # コンソール出力
 
 # 🔽 🧠 Transformers用設定
@@ -136,7 +136,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         print(f"⚠️ ERROR: AI生成エラー: {e}")
         logging.error(f"AI生成エラー: {e}")
 
-    # テンプレ分類
+    # テンプレ分類（チャッピーの推奨で前のテンプレ復活）
     NORMAL_TEMPLATES_JP = [
         "うんうん、かわいいね！癒されたよ🐾💖",
         "よかったね〜！ふわふわだね🌸🧸",
@@ -148,23 +148,24 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "そっか…ぎゅーってしてあげるね🐾💕",
         "元気出してね、ふわもこパワー送るよ！🧸✨",
         "つらいときこそ、ふわふわに包まれて…🐰☁️",
-        "無理しないでね、そっと寄り添うよ🦡🌸"
+        "無理しないでね、そっと寄り添うよ🧸🌸"
     ]
     MOGUMOGU_TEMPLATES_JP = [
-        "うーん🐾 美味しそう？ふわもこかな？😸",
-        "もぐもぐ？ふわもこも仲間だ！🐶💖",
-        "みりん！お腹空いた？ふわふわだよ🍡"
+        "うーん…これは癒しより美味しそう？🐾💭",
+        "もぐもぐしてるけど…ふわもこじゃないかな？🤔",
+        "みりんてゃ、お腹空いてきちゃった…食レポ？🍽️💬"
     ]
     NORMAL_TEMPLATES_EN = [
         "Wow, so cute! Feels good~ 🐾💖",
-        "Nice! So fluffy~ 😺💕",
-        "Great! So healing! 🦊💖",
-        "Amazing! Thanks for the fluff! 🐾🌸"
+        "Nice! So fluffy~ 🌸🧸",
+        "Great! Healing vibes! 💞",
+        "Amazing! Thanks for the fluff! 🐾🌷"
     ]
-    MOGUMOGUS_TEMPLATES_EN = [
-        "Yummy? But fluffy too? 🐾💕",
-        "Nom nom! Fluffy vibes! 🐰🌟",
-        "Tasty? Let’s stay cuddly! 🦝💖�"
+    MOGUMOGU_TEMPLATES_EN = [
+        "Hmmm... looks tasty, but maybe not so fluffy? 🐾💭",
+        "So yummy-looking... but is this a snack or a friend? 🤔🍞",
+        "This might be food, not a fluffy cutie... 🍽️💭",
+        "Adorable! But maybe not a fluffy buddy? 🐑💬"
     ]
 
     if any(word in text.lower() for word in EMOTION_TAGS["shonbori"]):
@@ -177,7 +178,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     elif any(any(word in text.lower() for word in sublist) for sublist in SAFE_CHARACTER.values()):
         for cat, keywords in SAFE_CHARACTER.items():
             if any(word in text.lower() for word in keywords):
-                return random.choice(CHARACTER_TEMPLATES[cat"])
+                return random.choice(CHARACTER_TEMPLATES[cat])  # typo修正
         return random.choice(CHARACTER_TEMPLATES["アニメ"]) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
@@ -290,7 +291,7 @@ def process_image(image_data, text="", client=None, post=None):
         
         skin_ratio = check_skin_ratio(image_data)
         if skin_ratio > 0.2:
-            print("🌀 肌色比率多すぎてスキップ")
+            print("🦝 肌色比率多すぎてスキップ")
             logging.debug("肌色比率多すぎ:スキップ")
             return False
 
@@ -301,16 +302,16 @@ def process_image(image_data, text="", client=None, post=None):
                 logging.debug("高リスクワードだが条件クリア")
                 return True
             else:
-                print("🌀 高リスクワード＋条件不一致でスキップ")
+                print("🦝 高リスクワード＋条件不一致でスキップ")
                 logging.debug("高リスクワード＋条件不一致:スキップ")
                 return False
 
         if fluffy_count >= 2 and total_colors >= 3:
-            print("🎉 SUCCESS: ふわもこ色検出（複数カラー）！")
-            logging.debug("ふわもこ色検出（複数カラー）")
+            print("🎉 SUCCESS: ふわもこ画像検知！")
+            logging.debug("ふわもこ画像検知")
             return True
         else:
-            print("🌀 単色または条件不足でスキップ")
+            print("🦝 単色または条件不足でスキップ")
             return False
 
         if any(pos in check_text for pos in EMOTION_TAGS["fuwamoko"]):
@@ -318,12 +319,12 @@ def process_image(image_data, text="", client=None, post=None):
             logging.debug("FUWAMOKOキーワード検出")
             return True
         if any(neu in check_text for neu in EMOTION_TAGS["neutral"]) and image_data is None:
-            print("🌀 中立ワードのみ＋画像なし。スキップ")
+            print("🦝 ニュートラルワード＋画像無しでスキップ")
             return False
 
         return False
     except Exception as e:
-        print(f"⚠️ ERROR: 画像解析エラー: {e}")
+        print(f"⚠️ エラー: 画像解析エラー: {e}")
         logging.error(f"画像解析エラー: {e}")
         return False
 
@@ -336,31 +337,31 @@ def is_quoted_repost(post):
             print(f"🛠️ DEBUG: Checking embed for quoted repost: {embed}")
             logging.debug(f"Checking embed for quoted repost: {embed}")
             if hasattr(embed, 'record') and embed.record:
-                print("🛠️ DEBUG: Found quoted repost (record)")
+                print("🦝 引用記録を検知")
                 logging.debug("Found quoted repost (record)")
                 return True
             elif hasattr(embed, 'record') and hasattr(embed.record, 'record') and embed.record.record:
-                print("🛠️ DEBUG: Found quoted repost (recordWithMedia)")
+                print("🦝 引用メディアを検知")
                 logging.debug("Found quoted repost (recordWithMedia)")
                 return True
         return False
     except Exception as e:
-        print(f"⚠️ ERROR: 引用リポストチェックエラー: {e}")
+        print(f"⚠️ エラー: 引用リポストチェックエラー: {e}")
         logging.error(f"引用リポストチェックエラー: {e}")
         return False
 
-def load_reposted_uris_for_check():
+def load_reposted_posts():
     REPOSTED_FILE = "reposted_uris.txt"
     if os.path.exists(REPOSTED_FILE):
         try:
             with open(REPOSTED_FILE, 'r', encoding='utf-8') as f:
                 uris = set(line.strip() for line in f if line.strip())
-                print(f"✅ SUCCESS: 読み込んだ reposted_uris: {len(uris)}件")
-                logging.debug(f"読み込んだ reposted_uris: {len(uris)}件")
+                print(f"✅ 読み込み成功: {len(uris)}件の再投稿")
+                logging.debug(f"読み込んだ再投稿: {len(uris)}件")
                 return uris
         except Exception as e:
-            print(f"⚠️ ERROR: reposted_uris読み込みエラー: {e}")
-            logging.error(f"reposted_uris読み込みエラー: {e}")
+            print(f"⚠️ エラー: 再投稿読み込みエラー: {e}")
+            logging.error(f"再投稿読み込みエラー: {e}")
             return set()
     return set()
 
@@ -374,8 +375,8 @@ def detect_language(client, handle):
             return "en"
         return "ja"
     except Exception as e:
-        print(f"⚠️ ERROR: 言語判定エラー: {e}")
-        logging.error(f"言語判定エラー: {e}")
+        print(f"⚠️ エラー: 言語判定失敗: {e}")
+        logging.error(f"言語判定失敗: {e}")
         return "ja"
 
 def is_priority_post(text):
@@ -398,7 +399,7 @@ def normalize_uri(uri):
             return f"at://{parts[2]}/{parts[3]}/{parts[4]}"
         return uri
     except Exception as e:
-        print(f"⚠️ ERROR: URI正規化エラー: {e}")
+        print(f"⚠️ エラー: URI正規化エラー: {e}")
         logging.error(f"URI正規化エラー: {e}")
         return uri
 
@@ -409,17 +410,17 @@ def load_fuwamoko_uris():
         try:
             with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
                 content = f.read()
-                print(f"📦 INFO: fuwamoko_empathy_uris.txt size: {len(content)} bytes")
-                logging.debug(f"fuwamoko_empathy_uris.txt size: {len(content)} bytes")
+                print(f"📦 情報: ふわもこ履歴サイズ: {len(content)} bytes")
+                logging.debug(f"ふわもこ履歴サイズ: {len(content)} bytes")
                 if content.strip():
                     for line in content.splitlines():
                         if line.strip():
                             uri, timestamp = line.strip().split("|", 1)
                             fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                print(f"📦 INFO: Loaded {len(fuwamoko_uris)} fuwamoko uris from {FUWAMOKO_FILE}")
-                logging.debug(f"Loaded {len(fuwamoko_uris)} fuwamoko uris")
+                print(f"📦 情報: {len(fuwamoko_uris)}件のふわもこ履歴を読み込み")
+                logging.debug(f"読み込んだふわもこ履歴: {len(fuwamoko_uris)}件")
         except Exception as e:
-            print(f"⚠️ ERROR: 履歴読み込みエラー: {e}")
+            print(f"⚠️ エラー: 履歴読み込みエラー: {e}")
             logging.error(f"履歴読み込みエラー: {e}")
 
 def save_fuwamoko_uri(uri, indexed_at):
@@ -434,22 +435,22 @@ def save_fuwamoko_uri(uri, indexed_at):
                 with open(FUWAMOKO_FILE + '.bak', 'w', encoding='utf-8') as f:
                     f.write(content)
             if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
-                print(f"⏭️ SKIP: 履歴保存スキップ（24時間以内）: {normalized_uri.split('/')[-1]}")
-                logging.debug(f"履歴保存スキップ（24時間以内）: {normalized_uri}")
+                print(f"🦝 スキップ: 24時間以内の履歴保存: {normalized_uri.split('/')[-1]}")
+                logging.debug(f"24時間以内の履歴保存スキップ: {normalized_uri}")
                 return
             if isinstance(indexed_at, str):
                 indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             fuwamoko_uris[normalized_uri] = indexed_at
-            print(f"💾 SUCCESS: 履歴保存: {normalized_uri.split('/')[-1]}")
+            print(f"💾 保存成功: 履歴保存: {normalized_uri.split('/')[-1]}")
             logging.debug(f"履歴保存: {normalized_uri}")
             load_fuwamoko_uris()
     except filelock.Timeout:
-        print(f"⚠️ ERROR: ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
+        print(f"⚠️ エラー: ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
         logging.error(f"ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
     except Exception as e:
-        print(f"⚠️ ERROR: 履歴保存エラー: {e}")
+        print(f"⚠️ エラー: 履歴保存エラー: {e}")
         logging.error(f"履歴保存エラー: {e}")
 
 def load_session_string():
@@ -459,7 +460,7 @@ def load_session_string():
                 return f.read().strip()
         return None
     except Exception as e:
-        print(f"⚠️ ERROR: セッション文字列読み込みエラー: {e}")
+        print(f"⚠️ エラー: セッション文字列読み込みエラー: {e}")
         logging.error(f"セッション文字列読み込みエラー: {e}")
         return None
 
@@ -468,7 +469,7 @@ def save_session_string(session_str):
         with open(SESSION_FILE, 'w', encoding='utf-8') as f:
             f.write(session_str)
     except Exception as e:
-        print(f"⚠️ ERROR: セッション文字列保存エラー: {e}")
+        print(f"⚠️ エラー: セッション文字列保存エラー: {e}")
         logging.error(f"セッション文字列保存エラー: {e}")
 
 def has_image(post):
@@ -491,35 +492,35 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
 
         is_reply = getattr(actual_post.record, "reply", None) is not None if hasattr(actual_post, 'record') else False
         if is_reply and not (is_priority_post(text) or is_reply_to_self(post)):
-            print(f"⏩ リプライスキップ (非@mirinchuuu/非自分宛): {text[:40]}")
+            print(f"🦝 リプライスキップ (非@mirinchuuu/非自分宛): {text[:40]}")
             logging.debug(f"リプライスキップ: {post_id}")
             return False
 
-        print(f"🛠️ DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
-        logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
+        print(f"🛠️ DEBUG: 投稿処理中 {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
+        logging.debug(f"投稿処理中 {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         if uri in fuwamoko_uris:
-            print(f"⏭️ SKIP: 既に返信済みの投稿なのでスキップ: {post_id}")
-            logging.debug(f"既に返信済みの投稿: {post_id}")
+            print(f"🦝 スキップ: 既に応答済み: {post_id}")
+            logging.debug(f"既に応答済み: {post_id}")
             return False
         if actual_post.author.handle == HANDLE:
-            print(f"⏭️ SKIP: 自分の投稿なのでスキップ: {post_id} (Author: @{actual_post.author.handle})")
+            print(f"🦝 スキップ: 自分の投稿: {post_id} (Author: @{actual_post.author.handle})")
             logging.debug(f"自分の投稿: {post_id} (Author: @{actual_post.author.handle})")
             return False
         if is_quoted_repost(post):
-            print(f"⏭️ SKIP: 引用リポストなのでスキップ: {post_id}")
+            print(f"🦝 スキップ: 引用リポスト: {post_id}")
             logging.debug(f"引用リポスト: {post_id}")
             return False
         if post_id in reposted_uris:
-            print(f"⏭️ SKIP: リポスト済みURIなのでスキップ: {post_id}")
-            logging.debug(f"リポスト済みURI: {post_id}")
+            print(f"🦝 スキップ: 再投稿済みURI: {post_id}")
+            logging.debug(f"再投稿済みURI: {post_id}")
             return False
 
         author = actual_post.author.handle
         indexed_at = actual_post.indexed_at
 
         if not has_image(post):
-            print(f"⏭️ SKIP: 画像なしなのでスキップ: {post_id}")
-            logging.debug(f"画像なし: {post_id}")
+            print(f"🦝 スキップ: 画像無し: {post_id}")
+            logging.debug(f"画像無し: {post_id}")
             return False
 
         image_data_list = []
@@ -535,17 +536,17 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                     image_data_list = embed.media.images
 
         if not is_mutual_follow(client, author):
-            print(f"⏭️ SKIP: 非相互フォローなのでスキップ: {post_id} (Author: @{author})")
+            print(f"🦝 スキップ: 非相互フォロー: {post_id} (Author: @{author})")
             logging.debug(f"非相互フォロー: {post_id} (Author: @{author})")
             return False
 
         if image_data_list:
             for i, image_data in enumerate(image_data_list):
-                print(f"🛠️ DEBUG: Processing image {i+1} of {len(image_data_list)} for post {post_id}")
+                print(f"🛠️ DEBUG: 画像処理中 {i+1}/{len(image_data_list)} for post {post_id}")
                 if process_image(image_data, text, client=client, post=post):
                     if random.random() >= 0.5:
-                        print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
-                        logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
+                        print(f"🦝 スキップ: ランダムスキップ（50%）: {post_id}")
+                        logging.debug(f"ランダムスキップ（50%）: {post_id}")
                         save_fuwamoko_uri(uri, indexed_at)
                         return False
                     lang = detect_language(client, author)
@@ -554,22 +555,22 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                         root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
                         parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
                     )
-                    print(f"🛠️ DEBUG: Sending post to @{author} with text: {reply_text}")
-                    logging.debug(f"Sending post to @{author} with text: {reply_text}")
+                    print(f"🛠️ DEBUG: 投稿送信 to @{author} with text: {reply_text}")
+                    logging.debug(f"投稿送信 to @{author} with text: {reply_text}")
                     client.send_post(
                         text=reply_text,
                         reply_to=reply_ref
                     )
                     save_fuwamoko_uri(uri, indexed_at)
-                    print(f"✅ SUCCESS: 返信しました → @{author}")
-                    logging.debug(f"返信成功: @{author}")
+                    print(f"✅ 成功: 応答送信 → @{author}")
+                    logging.debug(f"応答成功: @{author}")
                     return True
                 else:
-                    print(f"⏭️ SKIP: ふわもこ画像でないのでスキップ: {post_id} (image {i+1})")
+                    print(f"🦝 スキップ: ふわもこ画像でない: {post_id} (image {i+1})")
                     logging.debug(f"ふわもこ画像でない: {post_id} (image {i+1})")
         return False
     except Exception as e:
-        print(f"⚠️ ERROR: 投稿処理エラー: {e}")
+        print(f"⚠️ エラー: 投稿処理エラー: {e}")
         logging.error(f"投稿処理エラー: {e}")
         return False
 
@@ -579,19 +580,19 @@ def run_once():
         session_str = load_session_string()
         if session_str:
             client.login(session_string=session_str)
-            print(f"🚀 START: ふわもこBot起動！ セッション再利用")
+            print(f"🚀 開始: ふわもこBot起動！ セッション再利用")
             logging.info("Bot started: session reuse")
         else:
             client.login(HANDLE, APP_PASSWORD)
             session_str = client.export_session_string()
             save_session_string(session_str)
-            print(f"🚀 START: ふわもこBot起動！ 新規セッション")
+            print(f"🚀 開始: ふわもこBot起動！ 新規セッション")
             logging.info("Bot started: new session")
 
         print(f"🛠️ DEBUG: Bot HANDLE={HANDLE}")
         logging.debug(f"Bot HANDLE={HANDLE}")
         load_fuwamoko_uris()
-        reposted_uris = load_reposted_uris_for_check()
+        reposted_uris = load_reposted_posts()
 
         timeline = client.get_timeline(limit=50)
         feed = timeline.feed
@@ -600,12 +601,12 @@ def run_once():
                 thread_response = client.get_post_thread(uri=str(post.post.uri), depth=2)
                 process_post(thread_response.thread, client, fuwamoko_uris, reposted_uris)
             except Exception as e:
-                print(f"⚠️ ERROR: get_post_threadエラー: {e} (URI: {post.post.uri})")
-                logging.error(f"get_post_threadエラー: {e} (URI: {post.post.uri})")
+                print(f"⚠️ エラー: スレッド取得エラー: {e} (URI: {post.post.uri})")
+                logging.error(f"スレッド取得エラー: {e} (URI: {post.post.uri})")
             time.sleep(random.uniform(10, 20))
 
     except Exception as e:
-        print(f"⚠️ ERROR: 実行エラー: {e}")
+        print(f"⚠️ エラー: 実行エラー: {e}")
         logging.error(f"実行エラー: {e}")
 
 if __name__ == "__main__":
