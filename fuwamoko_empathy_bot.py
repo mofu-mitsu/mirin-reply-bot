@@ -55,11 +55,19 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     FOOD_WORDS = ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん", 
                   "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走", 
                   "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
-                  "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish"]
-    SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "マニキュア", 
-                      "cosmetics", "makeup", "perfume", "nail", "manicure"]
-    SAFE_CHARACTER = ["アニメ", "キャラ", "イラスト", "二次元", "オリキャラ", "OC", "創作", 
-                      "anime", "character", "illustration", "original", "creation"]
+                  "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish",
+                  "ラーメン", "うどん", "そば", "スープ", "味噌汁", "カルボナーラ",
+                  "鍋", "麺", "パン", "トースト", "カフェ", "デザート", "スイーツ", 
+                  "プリン", "クレープ", "ケーキ", "クリーム", "チョコ", "アイス", "ジュース", 
+                  "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
+                  "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"]
+    SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
+                      "cosmetics", "makeup", "perfume", "nail"]
+    SAFE_CHARACTER = {
+        "アニメ": ["アニメ", "anime"],
+        "一次創作": ["オリキャラ", "オリジナル", "一次"],
+        "二次創作": ["二次創作", "FA", "ファンアート", "fanart"]
+    }
 
     COSMETICS_TEMPLATES = {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
@@ -68,12 +76,14 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     }
     CHARACTER_TEMPLATES = {
         "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
-        "創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"]
+        "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
+        "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくる✨"]
     }
 
     # NGワードチェック
     if any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
-        text = "これはご飯系かも？ふわもこじゃないかもね"
+        print(f"🛠️ DEBUG: NG/FOODワード検出: {text[:40]}")
+        return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
 
     if not text.strip():
         text = "もふもふの動物の画像だよ〜"
@@ -99,13 +109,17 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^返事:\s*', '', reply)
         reply = re.sub(r'🧸{3,}|�|■.*?■|フォーラム|会話|ユーザー|投稿', '', reply).strip()
-        if not reply or len(reply) < 4:
-            reply = None
+        if reply and len(reply) >= 4:
+            print(f"✅ SUCCESS: AI生成成功: {reply}")
+            logging.debug(f"AI生成成功: {reply}")
+            return reply
+        else:
+            print(f"⚠️ WARN: AI生成失敗、テンプレ使用: {text[:40]}")
+            logging.warning(f"AI生成失敗、テンプレ使用: {text[:40]}")
     except Exception as e:
         print(f"⚠️ ERROR: AI生成エラー: {e}")
         logging.error(f"AI生成エラー: {e}")
-        reply = None
-    
+
     # テンプレ分類
     NORMAL_TEMPLATES_JP = [
         "うんうん、かわいいね！癒されたよ🐾💖",
@@ -141,17 +155,15 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     # 条件分岐（カテゴリ優先）
     if any(word in text.lower() for word in SHONBORI_KEYWORDS):
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-    elif any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
-        return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
     elif any(word.lower() in text.lower() for word in SAFE_COSMETICS):
         for key in COSMETICS_TEMPLATES:
             if key.lower() in text.lower():
                 return random.choice(COSMETICS_TEMPLATES[key])
         return random.choice(COSMETICS_TEMPLATES["リップ"]) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-    elif any(word.lower() in text.lower() for word in SAFE_CHARACTER):
-        for key in CHARACTER_TEMPLATES:
-            if key.lower() in text.lower():
-                return random.choice(CHARACTER_TEMPLATES[key])
+    elif any(any(word in text.lower() for word in sublist) for sublist in SAFE_CHARACTER.values()):
+        for cat, keywords in SAFE_CHARACTER.items():
+            if any(word in text.lower() for word in keywords):
+                return random.choice(CHARACTER_TEMPLATES[cat])
         return random.choice(CHARACTER_TEMPLATES["アニメ"]) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
