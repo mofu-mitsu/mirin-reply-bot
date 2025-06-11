@@ -70,7 +70,11 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                            "cosmetics", "makeup", "perfume", "nail"]
     }
     HIGH_RISK_WORDS = ["もちもち", "ぷにぷに"]
-
+    SAFE_CHARACTER = {
+        "アニメ": ["アニメ", "漫画", "マンガ", "キャラ", "イラスト", "ファンアート", "推し"],
+        "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作"],
+        "二次創作": ["二次創作", "ファンアート", "FA"]
+    }
     COSMETICS_TEMPLATES = {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
         "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
@@ -119,9 +123,9 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^ふわもこ返信:\s*', '', reply)
-        reply = re.sub(r'🧸{3,}|�|■.*?■|フォーラム|会話|ユーザー|投稿', '', reply).strip()
-        if reply and 5 <= len(reply) <= 50 and not any(bad in reply for bad in NG_PHRASES):
+        reply = re.sub(r'^(.*?あなたは癒し系でふわもこなマスコットです。.*?ふわもこ返信:\s*|\s*投稿:.*?\s*ふわもこ返信:\s*|\s*ふわもこ返信:\s*|\s*例:.*?\s*例:.*?\s*投稿:.*?\s*ふわもこ返信:\s*|\s*投稿:\s*.*?)\s*', '', reply, flags=re.IGNORECASE | re.DOTALL).strip()
+        reply = re.sub(r'🧸{3,}|�|■.*?■|フォーラム|会話|ユーザー|投稿|返事|お返事ありがとうございます|私は|名前|あなた|○○|・|？|！{5,}', '', reply).strip()
+        if reply and 4 <= len(reply) <= 50 and not any(bad in reply for bad in NG_PHRASES):
             print(f"✅ SUCCESS: AI生成成功: {reply}")
             logging.debug(f"AI生成成功: {reply}")
             return reply
@@ -144,24 +148,23 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "そっか…ぎゅーってしてあげるね🐾💕",
         "元気出してね、ふわもこパワー送るよ！🧸✨",
         "つらいときこそ、ふわふわに包まれて…🐰☁️",
-        "無理しないでね、そっと寄り添うよ🧸🌸"
+        "無理しないでね、そっと寄り添うよ🦡🌸"
     ]
     MOGUMOGU_TEMPLATES_JP = [
-        "うーん…これは癒しより美味しそう？🐾💭",
-        "もぐもぐしてるけど…ふわもこじゃないかな？🤔",
-        "みりんてゃ、お腹空いてきちゃった…食レポ？🍽️💬"
+        "うーん🐾 美味しそう？ふわもこかな？😸",
+        "もぐもぐ？ふわもこも仲間だ！🐶💖",
+        "みりん！お腹空いた？ふわふわだよ🍡"
     ]
     NORMAL_TEMPLATES_EN = [
         "Wow, so cute! Feels good~ 🐾💖",
-        "Nice! So fluffy~ 🌸🧸",
-        "Great! Healing vibes! 💞",
-        "Amazing! Thanks for the fluff! 🐾🌷"
+        "Nice! So fluffy~ 😺💕",
+        "Great! So healing! 🦊💖",
+        "Amazing! Thanks for the fluff! 🐾🌸"
     ]
-    MOGUMOGU_TEMPLATES_EN = [
-        "Hmmm... looks tasty, but maybe not so fluffy? 🐾💭",
-        "So yummy-looking... but is this a snack or a friend? 🤔🍞",
-        "This might be food, not a fluffy cutie... 🍽️💭",
-        "Adorable! But maybe not a fluffy buddy? 🐑💬"
+    MOGUMOGUS_TEMPLATES_EN = [
+        "Yummy? But fluffy too? 🐾💕",
+        "Nom nom! Fluffy vibes! 🐰🌟",
+        "Tasty? Let’s stay cuddly! 🦝💖�"
     ]
 
     if any(word in text.lower() for word in EMOTION_TAGS["shonbori"]):
@@ -174,7 +177,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     elif any(any(word in text.lower() for word in sublist) for sublist in SAFE_CHARACTER.values()):
         for cat, keywords in SAFE_CHARACTER.items():
             if any(word in text.lower() for word in keywords):
-                return random.choice(CHARACTER_TEMPLATES[cat])
+                return random.choice(CHARACTER_TEMPLATES[cat"])
         return random.choice(CHARACTER_TEMPLATES["アニメ"]) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
@@ -192,8 +195,8 @@ def check_skin_ratio(image_data):
         img_np = np.array(img)
         hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
 
-        lower_skin = np.array([0, 30, 60], dtype=np.uint8)
-        upper_skin = np.array([20, 150, 255], dtype=np.uint8)
+        lower_skin = np.array([0, 30, 50], dtype=np.uint8)
+        upper_skin = np.array([20, 180, 255], dtype=np.uint8)
 
         skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
         skin_area = np.sum(skin_mask > 0)
@@ -233,12 +236,12 @@ def download_image_from_blob(cid, client, did=None):
         try:
             response = requests.get(url, stream=True, timeout=10, headers=headers)
             response.raise_for_status()
-            print("✅ SUCCESS: CDN画像取得成功！")
-            logging.debug("CDN画像取得成功")
+            print(f"✅ SUCCESS: CDN画像取得成功！ URL: {url}")
+            logging.debug(f"CDN画像取得成功: {url}")
             return Image.open(BytesIO(response.content))
         except requests.exceptions.RequestException as e:
-            print(f"⚠️ ERROR: CDN取得失敗: {e}")
-            logging.error(f"CDN取得失敗: {e}")
+            print(f"⚠️ ERROR: CDN取得失敗: {url} - {e}")
+            logging.error(f"CDN取得失敗: {url} - {e}")
             continue
     
     if client and did:
@@ -257,6 +260,8 @@ def download_image_from_blob(cid, client, did=None):
 
 def process_image(image_data, text="", client=None, post=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
+        print("❌ ERROR: 画像データ構造エラー")
+        logging.debug("画像データ構造エラー")
         return False
 
     cid = image_data.image.ref.link
@@ -264,6 +269,8 @@ def process_image(image_data, text="", client=None, post=None):
         author_did = post.post.author.did if post and hasattr(post, 'post') else None
         img = download_image_from_blob(cid, client, did=author_did)
         if img is None:
+            print("❌ ERROR: 画像ダウンロード失敗のため画像処理スキップ")
+            logging.debug("画像ダウンロード失敗のため画像処理スキップ")
             return False
 
         img = img.resize((50, 50))
@@ -282,10 +289,21 @@ def process_image(image_data, text="", client=None, post=None):
                 fluffy_count += 1
         
         skin_ratio = check_skin_ratio(image_data)
-        if skin_ratio > 0.2:  # 閾値を0.3から0.2に緩和
+        if skin_ratio > 0.2:
             print("🌀 肌色比率多すぎてスキップ")
             logging.debug("肌色比率多すぎ:スキップ")
             return False
+
+        check_text = text.lower()
+        if any(word in check_text for word in HIGH_RISK_WORDS):
+            if skin_ratio < 0.2 and fluffy_count >= 2:
+                print("🎉 SUCCESS: 高リスクワードだが条件クリア")
+                logging.debug("高リスクワードだが条件クリア")
+                return True
+            else:
+                print("🌀 高リスクワード＋条件不一致でスキップ")
+                logging.debug("高リスクワード＋条件不一致:スキップ")
+                return False
 
         if fluffy_count >= 2 and total_colors >= 3:
             print("🎉 SUCCESS: ふわもこ色検出（複数カラー）！")
@@ -295,7 +313,6 @@ def process_image(image_data, text="", client=None, post=None):
             print("🌀 単色または条件不足でスキップ")
             return False
 
-        check_text = text.lower()
         if any(pos in check_text for pos in EMOTION_TAGS["fuwamoko"]):
             print("🎉 FUWAMOKOキーワードヒット")
             logging.debug("FUWAMOKOキーワード検出")
