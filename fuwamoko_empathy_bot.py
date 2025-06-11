@@ -43,15 +43,15 @@ SESSION_FILE = "session_string.txt"
 FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
-# ... (既存のインポートと設定は省略)
-
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     if not text.strip():
         text = "もふもふの動物の画像だよ〜"
+    elif "加工肉" in text.lower() or "ハム" in text.lower():
+        text = "これは加工肉かな？ふわもこじゃないかもね"
 
     prompt = (
-        "あなたはやさしく共感する『ふわもこBot』です。\n"
-        "以下の発言に対して、40文字以内で癒し系の返事をひとこと返してください。\n\n"
+        "あなたは癒し系のふわもこBotです。\n"
+        "以下の発言に、40文字以内で優しく返してください。\n\n"
         f"発言: 「{text[:60]}」\n"
         "返事:"
     )
@@ -83,7 +83,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             "よかったね〜！ふわふわだね🌸🧸",
             "えへっ、モフモフで癒しMAX！💞",
             "うわっ！可愛すぎるよ🐾🌷",
-            "ふわふわだね、元気出た！💫🧸"
+            "ふわふわだね、元気出た！💫🧸",
+            "うーん…モグモグじゃなくて癒しね🐾💦"
         ])
     else:
         return reply or random.choice([
@@ -92,8 +93,6 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             "Great! Healing vibes! 💞",
             "Amazing! Thanks for the fluff! 🐾🌷"
         ])
-
-# ... (残りの関数は変更なし)
 
 def is_mutual_follow(client, handle):
     try:
@@ -158,11 +157,9 @@ def process_image(image_data, text="", client=None, post=None):
         fluffy_count = 0
         for color in common_colors:
             r, g, b = color[0][:3]
-            if (r > 180 and g > 180 and b > 180) or \
-               (r > 180 and g < 180 and b < 180) or \
-               (r > 180 and g > 180 and b < 180) or \
-               (r > 150 and g > 100 and b < 100) or \
-               (r > 150 and g < 100 and b > 100):
+            if (r > 200 and g > 200 and b > 200) or \  # 白
+               (r > 220 and g < 170 and b > 200) or \  # 明るいピンク
+               (r > 200 and g > 180 and b < 180):     # クリーム色系
                 fluffy_count += 1
         if fluffy_count >= 1:
             print("🎉 SUCCESS: ふわもこ色検出！")
@@ -324,7 +321,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         
         print(f"🛠️ DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
-        if uri in fuwamoko_uris:  # チェックを先頭に
+        if uri in fuwamoko_uris:
             print(f"⏭️ SKIP: 既に返信済みの投稿なのでスキップ: {post_id}")
             logging.debug(f"既に返信済みの投稿: {post_id}")
             return False
@@ -370,7 +367,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                 if random.random() >= 0.5:  # 50%スキップ
                     print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
                     logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
-                    save_fuwamoko_uri(uri, indexed_at)  # スキップ時も保存
+                    save_fuwamoko_uri(uri, indexed_at)
                     return False
                 lang = detect_language(client, author)
                 reply_text = open_calm_reply("", text, lang=lang)
@@ -426,7 +423,7 @@ def run_once():
             except Exception as e:
                 print(f"⚠️ ERROR: get_post_threadエラー: {e} (URI: {post.post.uri})")
                 logging.error(f"get_post_threadエラー: {e} (URI: {post.post.uri})")
-            time.sleep(random.uniform(10, 20))  # 間隔を10-20秒に
+            time.sleep(random.uniform(10, 20))
 
     except Exception as e:
         print(f"⚠️ ERROR: 実行エラー: {e}")
