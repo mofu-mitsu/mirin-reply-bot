@@ -43,11 +43,16 @@ SESSION_FILE = "session_string.txt"
 FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
+# ... (既存のインポートと設定は省略)
+
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
+    if not text.strip():
+        text = "もふもふの動物の画像だよ〜"
+
     prompt = (
         "あなたはやさしく共感する『ふわもこBot』です。\n"
-        "以下の投稿に対して、40文字以内で癒し系の返事をひとこと返してください。\n"
-        f"投稿:「{text[:60]}」\n"
+        "以下の発言に対して、40文字以内で癒し系の返事をひとこと返してください。\n\n"
+        f"発言: 「{text[:60]}」\n"
         "返事:"
     )
     
@@ -63,13 +68,9 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^(返事:|ふわもこBot:)?\s*', '', reply)
-        reply = re.sub(r'[■「」:🧸]{3,}|フォーラム|会話|ユーザー|投稿|ふわもこBotとの.*', '', reply).strip()
-        print(f"🛠️ DEBUG: AI generated reply: {reply}")
-        logging.debug(f"AI generated reply: {reply}")
-        if not reply or len(reply) < 4 or re.fullmatch(r'[\s:「」]*', reply):
-            print("🛠️ DEBUG: AI reply invalid, using template")
-            logging.debug("AI reply invalid, using template")
+        reply = re.sub(r'^返事:\s*', '', reply)
+        reply = re.sub(r'🧸{3,}|�|■.*?■|フォーラム|会話|ユーザー|投稿', '', reply).strip()
+        if not reply or len(reply) < 4:
             reply = None
     except Exception as e:
         print(f"⚠️ ERROR: AI生成エラー: {e}")
@@ -91,6 +92,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             "Great! Healing vibes! 💞",
             "Amazing! Thanks for the fluff! 🐾🌷"
         ])
+
+# ... (残りの関数は変更なし)
 
 def is_mutual_follow(client, handle):
     try:
