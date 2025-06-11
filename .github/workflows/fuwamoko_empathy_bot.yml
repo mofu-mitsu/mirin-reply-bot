@@ -7,7 +7,7 @@ concurrency:
 jobs:
   run-fuwamoko-empathy-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     permissions:
       contents: write  # Gitコミットの権限
       actions: write   # Actions操作
