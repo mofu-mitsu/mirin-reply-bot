@@ -45,9 +45,10 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     prompt = (
-        "ふわもこBotとユーザーの会話:\n"
-        f"ユーザー: 「{text[:60]}」\n"
-        "ふわもこBot: "
+        "あなたはやさしく共感する『ふわもこBot』です。\n"
+        "以下の投稿に対して、40文字以内で癒し系の返事をひとこと返してください。\n"
+        f"投稿:「{text[:60]}」\n"
+        "返事:"
     )
     
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=140).to(model.device)
@@ -62,11 +63,11 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^ふわもこBot:\s*', '', reply)
-        reply = re.sub(r'🧸{3,}|�|■.*?■|返信|いいね|投稿|ユーザー|会話', '', reply).strip()
+        reply = re.sub(r'^(返事:|ふわもこBot:)?\s*', '', reply)
+        reply = re.sub(r'[■「」:🧸]{3,}|フォーラム|会話|ユーザー|投稿|ふわもこBotとの.*', '', reply).strip()
         print(f"🛠️ DEBUG: AI generated reply: {reply}")
         logging.debug(f"AI generated reply: {reply}")
-        if not reply or len(reply) < 4:
+        if not reply or len(reply) < 4 or re.fullmatch(r'[\s:「」]*', reply):
             print("🛠️ DEBUG: AI reply invalid, using template")
             logging.debug("AI reply invalid, using template")
             reply = None
@@ -77,16 +78,16 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     
     if lang == "ja":
         return reply or random.choice([
-            "うんうん、がんばったね…！ふわっと休もうね🐰💖",
-            "きゃー！可愛すぎ！癒されたよ🌸🧸",
-            "よかったね〜！モフモフだね💞",
-            "うわっ！癒しMAX！ありがとうね🐾🌷",
-            "ふわふわだね、元気出たよ💫🧸"
+            "うんうん、かわいいね！癒されたよ🐰💖",
+            "よかったね〜！ふわふわだね🌸🧸",
+            "えへっ、モフモフで癒しMAX！💞",
+            "うわっ！可愛すぎるよ🐾🌷",
+            "ふわふわだね、元気出た！💫🧸"
         ])
     else:
         return reply or random.choice([
             "Wow, so cute! Feels good~ 🐰💖",
-            "Nice one! So fluffy~ 🌸🧸",
+            "Nice! So fluffy~ 🌸🧸",
             "Great! Healing vibes! 💞",
             "Amazing! Thanks for the fluff! 🐾🌷"
         ])
