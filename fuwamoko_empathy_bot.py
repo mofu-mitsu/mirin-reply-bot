@@ -44,15 +44,19 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    # NGワードとキーワード定義
+    # キーワード定義
     NG_WORDS = ["加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "salmon", "ham", "bacon", "meat",
                 "シチュー", "リップ", "口紅", "たらこ", "パスタ", "sandwich", "sausage"]
     SHONBORI_KEYWORDS = ["しょんぼり", "元気ない", "つらい", "かなしい", "さびしい", "しんどい", "つかれた", "へこんだ"]
     POSITIVE_KEYWORDS = ["ふわふわ", "もこもこ", "もふもふ", "soft", "fluffy", "癒し", "たまらん"]
     NEUTRAL_KEYWORDS = ["かわいい", "cute", "adorable", "愛しい"]
+    FOOD_WORDS = ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん", 
+                  "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走", 
+                  "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
+                  "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish"]
 
     # NGワードチェック
-    if any(word.lower() in text.lower() for word in NG_WORDS):
+    if any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
         text = "これはご飯系かも？ふわもこじゃないかもね"
 
     if not text.strip():
@@ -101,11 +105,9 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "無理しないでね、そっと寄り添うよ🧸🌸"
     ]
     MOGUMOGU_TEMPLATES_JP = [
-        "うーん…モグモグじゃなくて癒しね💭",
-        "それ美味しそうだけど、癒し画像じゃないかも〜？🐾",
-        "ごはんだ〜！ふわもこはどこかな…？🧸",
-        "お腹すいちゃうけど、もこもこ成分は少なめ？🌫️",
-        "癒し探してたのに…お腹鳴っちゃったかも🤔🍴"
+        "うーん…これは癒しより美味しそう？🐾💭",
+        "もぐもぐしてるけど…ふわもこじゃないかな？🤔",
+        "みりんてゃ、お腹空いてきちゃった…食レポ？🍽️💬"
     ]
     NORMAL_TEMPLATES_EN = [
         "Wow, so cute! Feels good~ 🐾💖",
@@ -114,16 +116,16 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "Amazing! Thanks for the fluff! 🐾🌷"
     ]
     MOGUMOGU_TEMPLATES_EN = [
-        "Yum! But I think this is more tasty than fluffy? 🍽️😅",
-        "Looks delicious, but is it soft and fluffy? 🤔",
-        "I think this one's more for dinner than cuddles! 🍔🧸",
-        "Hmm... not sure if this is cute or just yummy! 😋🐾"
+        "Hmmm... looks tasty, but maybe not so fluffy? 🐾💭",
+        "So yummy-looking... but is this a snack or a friend? 🤔🍞",
+        "This might be food, not a fluffy cutie... 🍽️💭",
+        "Adorable! But maybe not a fluffy buddy? 🐑💬"
     ]
 
     # 条件分岐
     if any(word in text.lower() for word in SHONBORI_KEYWORDS):
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-    elif any(word.lower() in text.lower() for word in NG_WORDS):
+    elif any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
@@ -189,18 +191,25 @@ def process_image(image_data, text="", client=None, post=None):
         common_colors = color_counts.most_common(5)
 
         fluffy_count = 0
+        total_colors = 0
         for color in common_colors:
             r, g, b = color[0][:3]
+            total_colors += 1
             if (r > 200 and g > 200 and b > 200) or \  # 白
                (r > 220 and g < 170 and b > 200) or \  # 明るいピンク
                (r > 200 and g > 180 and b < 180):     # クリーム色系
                 fluffy_count += 1
-        if fluffy_count >= 1:
-            print("🎉 SUCCESS: ふわもこ色検出！")
-            logging.debug("ふわもこ色検出")
+        
+        # 白1色NG、複数カラーでOK
+        if fluffy_count >= 2 and total_colors >= 3:
+            print("🎉 SUCCESS: ふわもこ色検出（複数カラー）！")
+            logging.debug("ふわもこ色検出（複数カラー）")
             return True
+        else:
+            print("🌀 単色または条件不足でスキップ")
+            return False
 
-        # キーワード判定の改良
+        # キーワード判定（画像なしの場合は中立キーワードでスキップ）
         check_text = text.lower()
         NG_KEYWORDS = ["肉", "ハム", "ソーセージ", "ベーコン", "加工肉", "パスタ", "ステーキ", "餃子", "弁当", 
                        "salmon", "bacon"]
@@ -212,8 +221,8 @@ def process_image(image_data, text="", client=None, post=None):
             print("🎉 ポジティブワードヒット")
             logging.debug("癒しキーワード検出")
             return True
-        if any(neu in check_text for neu in NEUTRAL_KEYWORDS):
-            print("🌀 中立ワードのみ。画像で判断したい")
+        if any(neu in check_text for neu in NEUTRAL_KEYWORDS) and image_data is None:
+            print("🌀 中立ワードのみ＋画像なし。スキップ")
             return False
 
         return False
