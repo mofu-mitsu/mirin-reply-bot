@@ -426,7 +426,7 @@ def run_once():
             except Exception as e:
                 print(f"⚠️ ERROR: get_post_threadエラー: {e} (URI: {post.post.uri})")
                 logging.error(f"get_post_threadエラー: {e} (URI: {post.post.uri})")
-            time.sleep(random.uniform(2, 5))
+            time.sleep(random.uniform(10, 20))  # 間隔を10-20秒に
 
     except Exception as e:
         print(f"⚠️ ERROR: 実行エラー: {e}")
