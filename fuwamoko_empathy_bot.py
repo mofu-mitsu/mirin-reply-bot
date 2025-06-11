@@ -54,7 +54,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                   "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走", 
                   "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
                   "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish"]
-    SAFE_FOOD = ["latte", "カフェオレ", "パンケーキ", "ホットケーキ"]
+    SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "cosmetics", "makeup", "perfume"]
+    SAFE_CHARACTER = ["アニメ", "キャラ", "イラスト", "二次元", "anime", "character", "illustration"]
 
     # NGワードチェック
     if any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
@@ -99,6 +100,16 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "うわっ！可愛すぎるよ🐾🌷",
         "ふわふわだね、元気出た！💫🧸"
     ]
+    COSMETICS_TEMPLATES_JP = [
+        "このリップ可愛い〜💄💖",
+        "ふわっと仕上がってて素敵っ✨",
+        "そのメイク、癒し効果あり！🌸"
+    ]
+    CHARACTER_TEMPLATES_JP = [
+        "ふわふわピンクが似合ってる〜🌸",
+        "ゆめかわ〜！素敵だよ🦄",
+        "アニメキャラがモフモフ！💕"
+    ]
     SHONBORI_TEMPLATES_JP = [
         "そっか…ぎゅーってしてあげるね🐾💕",
         "元気出してね、ふわもこパワー送るよ！🧸✨",
@@ -128,8 +139,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     elif any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
-    elif any(safe in text.lower() for safe in SAFE_FOOD):
-        return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+    elif any(word.lower() in text.lower() for word in SAFE_COSMETICS):
+        return random.choice(COSMETICS_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+    elif any(word.lower() in text.lower() for word in SAFE_CHARACTER):
+        return random.choice(CHARACTER_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -377,6 +390,9 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         
+        # テキストの初期化（エラー対策）
+        text = getattr(actual_post.record, "text", "")
+
         # リプライチェック
         is_reply = getattr(actual_post.record, "reply", None) is not None
         if is_reply and not (is_priority_post(text) or is_reply_to_self(post)):
@@ -403,7 +419,6 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             logging.debug(f"リポスト済みURI: {post_id}")
             return False
 
-        text = getattr(actual_post.record, "text", "")
         author = actual_post.author.handle
         embed = getattr(actual_post.record, "embed", None)
         indexed_at = actual_post.indexed_at
