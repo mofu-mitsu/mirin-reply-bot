@@ -8,6 +8,8 @@ from io import BytesIO
 import filelock
 import re
 import logging
+import cv2
+import numpy as np
 
 # 🔽 🌱 外部ライブラリ
 from dotenv import load_dotenv
@@ -46,7 +48,7 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     # キーワード定義
     NG_WORDS = ["加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "salmon", "ham", "bacon", "meat",
-                "シチュー", "リップ", "口紅", "たらこ", "パスタ", "sandwich", "sausage"]
+                "シチュー", "たらこ", "パスタ", "sandwich", "sausage"]
     SHONBORI_KEYWORDS = ["しょんぼり", "元気ない", "つらい", "かなしい", "さびしい", "しんどい", "つかれた", "へこんだ"]
     POSITIVE_KEYWORDS = ["ふわふわ", "もこもこ", "もふもふ", "soft", "fluffy", "たまらん"]
     NEUTRAL_KEYWORDS = ["かわいい", "cute", "adorable", "愛しい"]
@@ -54,8 +56,20 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                   "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走", 
                   "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
                   "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish"]
-    SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "cosmetics", "makeup", "perfume"]
-    SAFE_CHARACTER = ["アニメ", "キャラ", "イラスト", "二次元", "anime", "character", "illustration"]
+    SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "マニキュア", 
+                      "cosmetics", "makeup", "perfume", "nail", "manicure"]
+    SAFE_CHARACTER = ["アニメ", "キャラ", "イラスト", "二次元", "オリキャラ", "OC", "創作", 
+                      "anime", "character", "illustration", "original", "creation"]
+
+    COSMETICS_TEMPLATES = {
+        "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
+        "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
+        "ネイル": ["そのネイル、キラキラしてて最高💅✨", "ふわもこカラーで素敵〜！💖"]
+    }
+    CHARACTER_TEMPLATES = {
+        "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
+        "創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"]
+    }
 
     # NGワードチェック
     if any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
@@ -100,16 +114,6 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "うわっ！可愛すぎるよ🐾🌷",
         "ふわふわだね、元気出た！💫🧸"
     ]
-    COSMETICS_TEMPLATES_JP = [
-        "このリップ可愛い〜💄💖",
-        "ふわっと仕上がってて素敵っ✨",
-        "そのメイク、癒し効果あり！🌸"
-    ]
-    CHARACTER_TEMPLATES_JP = [
-        "ふわふわピンクが似合ってる〜🌸",
-        "ゆめかわ〜！素敵だよ🦄",
-        "アニメキャラがモフモフ！💕"
-    ]
     SHONBORI_TEMPLATES_JP = [
         "そっか…ぎゅーってしてあげるね🐾💕",
         "元気出してね、ふわもこパワー送るよ！🧸✨",
@@ -134,17 +138,51 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "Adorable! But maybe not a fluffy buddy? 🐑💬"
     ]
 
-    # 条件分岐
+    # 条件分岐（カテゴリ優先）
     if any(word in text.lower() for word in SHONBORI_KEYWORDS):
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     elif any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
     elif any(word.lower() in text.lower() for word in SAFE_COSMETICS):
-        return random.choice(COSMETICS_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+        for key in COSMETICS_TEMPLATES:
+            if key.lower() in text.lower():
+                return random.choice(COSMETICS_TEMPLATES[key])
+        return random.choice(COSMETICS_TEMPLATES["リップ"]) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     elif any(word.lower() in text.lower() for word in SAFE_CHARACTER):
-        return random.choice(CHARACTER_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+        for key in CHARACTER_TEMPLATES:
+            if key.lower() in text.lower():
+                return random.choice(CHARACTER_TEMPLATES[key])
+        return random.choice(CHARACTER_TEMPLATES["アニメ"]) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+def check_skin_ratio(image_data):
+    try:
+        cid = image_data.image.ref.link
+        img = download_image_from_blob(cid, None)
+        if img is None:
+            return 0.0
+
+        img = img.convert("RGB")
+        img_np = np.array(img)
+        hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
+
+        # 肌色の範囲（ざっくり）
+        lower_skin = np.array([0, 30, 60], dtype=np.uint8)
+        upper_skin = np.array([20, 150, 255], dtype=np.uint8)
+
+        skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
+        skin_area = np.sum(skin_mask > 0)
+        total_area = img_np.shape[0] * img_np.shape[1]
+
+        ratio = skin_area / total_area
+        print(f"🛠️ DEBUG: Skin ratio detected: {ratio}")
+        logging.debug(f"Skin ratio: {ratio}")
+        return ratio
+    except Exception as e:
+        print(f"⚠️ ERROR: 肌色比率チェックエラー: {e}")
+        logging.error(f"肌色比率チェックエラー: {e}")
+        return 0.0
 
 def is_mutual_follow(client, handle):
     try:
@@ -216,6 +254,13 @@ def process_image(image_data, text="", client=None, post=None):
                (r > 200 and g > 180 and b < 180):
                 fluffy_count += 1
         
+        # 肌色比率チェック
+        skin_ratio = check_skin_ratio(image_data)
+        if skin_ratio > 0.3:
+            print("🌀 肌色比率多すぎてスキップ")
+            logging.debug("肌色比率多すぎ:スキップ")
+            return False
+
         # 白1色NG、複数カラーでOK
         if fluffy_count >= 2 and total_colors >= 3:
             print("🎉 SUCCESS: ふわもこ色検出（複数カラー）！")
@@ -243,9 +288,10 @@ def process_image(image_data, text="", client=None, post=None):
 
 def is_quoted_repost(post):
     try:
-        actual_post_record = post.post.record if hasattr(post, 'post') else post.record
-        if hasattr(actual_post_record, 'embed') and actual_post_record.embed:
-            embed = actual_post_record.embed
+        actual_post = post.post if hasattr(post, 'post') else post
+        record = getattr(actual_post, 'record', None)
+        if record and hasattr(record, 'embed') and record.embed:
+            embed = record.embed
             print(f"🛠️ DEBUG: Checking embed for quoted repost: {embed}")
             logging.debug(f"Checking embed for quoted repost: {embed}")
             if hasattr(embed, 'record') and embed.record:
@@ -295,7 +341,7 @@ def is_priority_post(text):
     return "@mirinchuuu" in text.lower()
 
 def is_reply_to_self(post):
-    reply = getattr(post.record, "reply", None)
+    reply = getattr(post.record, "reply", None) if hasattr(post, 'record') else None
     if reply and hasattr(reply, "parent") and hasattr(reply.parent, "author"):
         return reply.parent.author.handle == HANDLE
     return False
@@ -384,6 +430,15 @@ def save_session_string(session_str):
         print(f"⚠️ ERROR: セッション文字列保存エラー: {e}")
         logging.error(f"セッション文字列保存エラー: {e}")
 
+def has_image(post):
+    actual_post = post.post if hasattr(post, 'post') else post
+    embed = getattr(actual_post, 'record', {}).get('embed', None)
+    if not embed:
+        return False
+    return (hasattr(embed, 'images') and embed.images) or \
+           (hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images')) or \
+           (embed.get('$type') == 'app.bsky.embed.recordWithMedia' and hasattr(embed, 'media') and hasattr(embed.media, 'images'))
+
 def process_post(post, client, fuwamoko_uris, reposted_uris):
     try:
         actual_post = post.post if hasattr(post, 'post') else post
@@ -391,10 +446,10 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         post_id = uri.split('/')[-1]
         
         # テキストの初期化（エラー対策）
-        text = getattr(actual_post.record, "text", "")
+        text = getattr(actual_post, 'record', {}).get("text", "")
 
         # リプライチェック
-        is_reply = getattr(actual_post.record, "reply", None) is not None
+        is_reply = getattr(actual_post, 'record', {}).get("reply", None) is not None
         if is_reply and not (is_priority_post(text) or is_reply_to_self(post)):
             print(f"⏩ リプライスキップ (非@mirinchuuu/非自分宛, reply={getattr(actual_post.record, 'reply', None)}): {text[:40]}")
             logging.debug(f"リプライスキップ: {post_id}")
@@ -420,10 +475,15 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             return False
 
         author = actual_post.author.handle
-        embed = getattr(actual_post.record, "embed", None)
         indexed_at = actual_post.indexed_at
 
+        if not has_image(post):
+            print(f"⏭️ SKIP: 画像なしなのでスキップ: {post_id}")
+            logging.debug(f"画像なし: {post_id}")
+            return False
+
         image_data_list = []
+        embed = getattr(actual_post, 'record', {}).get('embed', None)
         if embed and hasattr(embed, 'images') and embed.images:
             image_data_list = embed.images
         elif embed and hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images'):
@@ -431,10 +491,6 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         elif embed and embed.get('$type') == 'app.bsky.embed.recordWithMedia':
             if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
                 image_data_list = embed.media.images
-        else:
-            print(f"⏭️ SKIP: 画像なしなのでスキップ: {post_id}")
-            logging.debug(f"画像なし: {post_id}")
-            return False
 
         if not is_mutual_follow(client, author):
             print(f"⏭️ SKIP: 非相互フォローなのでスキップ: {post_id} (Author: @{author})")
