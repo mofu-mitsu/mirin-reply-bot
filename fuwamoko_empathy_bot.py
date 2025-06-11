@@ -44,15 +44,24 @@ FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
+    # NGワードとキーワード定義
+    NG_WORDS = ["加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "salmon", "ham", "bacon", "meat",
+                "シチュー", "リップ", "口紅", "たらこ", "パスタ", "sandwich", "sausage"]
+    SHONBORI_KEYWORDS = ["しょんぼり", "元気ない", "つらい", "かなしい", "さびしい", "しんどい", "つかれた", "へこんだ"]
+    POSITIVE_KEYWORDS = ["ふわふわ", "もこもこ", "もふもふ", "soft", "fluffy", "癒し", "たまらん"]
+    NEUTRAL_KEYWORDS = ["かわいい", "cute", "adorable", "愛しい"]
+
+    # NGワードチェック
+    if any(word.lower() in text.lower() for word in NG_WORDS):
+        text = "これはご飯系かも？ふわもこじゃないかもね"
+
     if not text.strip():
         text = "もふもふの動物の画像だよ〜"
-    elif "加工肉" in text.lower() or "ハム" in text.lower():
-        text = "これは加工肉かな？ふわもこじゃないかもね"
 
+    # プロンプト
     prompt = (
-        "あなたは癒し系のふわもこBotです。\n"
-        "以下の発言に、40文字以内で優しく返してください。\n\n"
-        f"発言: 「{text[:60]}」\n"
+        f"以下の投稿に対して、ふわもこで癒し系の短い返事をしてください（40文字以内）:\n"
+        f"投稿: {text[:60]}\n"
         "返事:"
     )
     
@@ -77,22 +86,47 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         logging.error(f"AI生成エラー: {e}")
         reply = None
     
-    if lang == "ja":
-        return reply or random.choice([
-            "うんうん、かわいいね！癒されたよ🐰💖",
-            "よかったね〜！ふわふわだね🌸🧸",
-            "えへっ、モフモフで癒しMAX！💞",
-            "うわっ！可愛すぎるよ🐾🌷",
-            "ふわふわだね、元気出た！💫🧸",
-            "うーん…モグモグじゃなくて癒しね🐾💦"
-        ])
+    # テンプレ分類
+    NORMAL_TEMPLATES_JP = [
+        "うんうん、かわいいね！癒されたよ🐾💖",
+        "よかったね〜！ふわふわだね🌸🧸",
+        "えへっ、モフモフで癒しMAX！💞",
+        "うわっ！可愛すぎるよ🐾🌷",
+        "ふわふわだね、元気出た！💫🧸"
+    ]
+    SHONBORI_TEMPLATES_JP = [
+        "そっか…ぎゅーってしてあげるね🐾💕",
+        "元気出してね、ふわもこパワー送るよ！🧸✨",
+        "つらいときこそ、ふわふわに包まれて…🐰☁️",
+        "無理しないでね、そっと寄り添うよ🧸🌸"
+    ]
+    MOGUMOGU_TEMPLATES_JP = [
+        "うーん…モグモグじゃなくて癒しね💭",
+        "それ美味しそうだけど、癒し画像じゃないかも〜？🐾",
+        "ごはんだ〜！ふわもこはどこかな…？🧸",
+        "お腹すいちゃうけど、もこもこ成分は少なめ？🌫️",
+        "癒し探してたのに…お腹鳴っちゃったかも🤔🍴"
+    ]
+    NORMAL_TEMPLATES_EN = [
+        "Wow, so cute! Feels good~ 🐾💖",
+        "Nice! So fluffy~ 🌸🧸",
+        "Great! Healing vibes! 💞",
+        "Amazing! Thanks for the fluff! 🐾🌷"
+    ]
+    MOGUMOGU_TEMPLATES_EN = [
+        "Yum! But I think this is more tasty than fluffy? 🍽️😅",
+        "Looks delicious, but is it soft and fluffy? 🤔",
+        "I think this one's more for dinner than cuddles! 🍔🧸",
+        "Hmm... not sure if this is cute or just yummy! 😋🐾"
+    ]
+
+    # 条件分岐
+    if any(word in text.lower() for word in SHONBORI_KEYWORDS):
+        return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+    elif any(word.lower() in text.lower() for word in NG_WORDS):
+        return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
     else:
-        return reply or random.choice([
-            "Wow, so cute! Feels good~ 🐰💖",
-            "Nice! So fluffy~ 🌸🧸",
-            "Great! Healing vibes! 💞",
-            "Amazing! Thanks for the fluff! 🐾🌷"
-        ])
+        return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
 def is_mutual_follow(client, handle):
     try:
@@ -166,12 +200,21 @@ def process_image(image_data, text="", client=None, post=None):
             logging.debug("ふわもこ色検出")
             return True
 
+        # キーワード判定の改良
         check_text = text.lower()
-        keywords = ["ふわふわ", "もこもこ", "かわいい", "fluffy", "cute", "soft", "もふもふ", "愛しい", "癒し", "たまらん", "adorable"]
-        if any(keyword in check_text for keyword in keywords):
-            print("🎉 SUCCESS: キーワード検出！")
-            logging.debug("キーワード検出")
+        NG_KEYWORDS = ["肉", "ハム", "ソーセージ", "ベーコン", "加工肉", "パスタ", "ステーキ", "餃子", "弁当", 
+                       "salmon", "bacon"]
+        if any(ng in check_text for ng in NG_KEYWORDS):
+            print("⚠️ ご飯系っぽい？ふわもこではないかも")
+            logging.debug("NGワードにヒット")
+            return False
+        if any(pos in check_text for pos in POSITIVE_KEYWORDS):
+            print("🎉 ポジティブワードヒット")
+            logging.debug("癒しキーワード検出")
             return True
+        if any(neu in check_text for neu in NEUTRAL_KEYWORDS):
+            print("🌀 中立ワードのみ。画像で判断したい")
+            return False
 
         return False
     except Exception as e:
