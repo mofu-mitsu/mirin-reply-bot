@@ -47,26 +47,29 @@ FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     # キーワード定義
-    NG_WORDS = ["加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "salmon", "ham", "bacon", "meat",
-                "シチュー", "たらこ", "パスタ", "sandwich", "sausage"]
-    SHONBORI_KEYWORDS = ["しょんぼり", "元気ない", "つらい", "かなしい", "さびしい", "しんどい", "つかれた", "へこんだ"]
-    POSITIVE_KEYWORDS = ["ふわふわ", "もこもこ", "もふもふ", "soft", "fluffy", "たまらん"]
-    NEUTRAL_KEYWORDS = ["かわいい", "cute", "adorable", "愛しい"]
-    FOOD_WORDS = ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん", 
-                  "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走", 
-                  "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
-                  "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish",
-                  "ラーメン", "うどん", "そば", "スープ", "味噌汁", "カルボナーラ",
-                  "鍋", "麺", "パン", "トースト", "カフェ", "ジュース", 
-                  "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
-                  "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"]
-    SAFE_COSMETICS = ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
-                      "cosmetics", "makeup", "perfume", "nail"]
-    SAFE_CHARACTER = {
-        "アニメ": ["アニメ", "anime"],
-        "一次創作": ["オリキャラ", "オリジナル", "一次"],
-        "二次創作": ["二次創作", "FA", "ファンアート", "fanart"]
+    NG_WORDS = [
+        "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
+        "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
+        "meat", "bacon", "ham", "sausage", "pasta", "noodle",
+        "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出", "胸", "おっぱい", "谷間",
+        "肌フェチ", "soft skin", "fetish"
+    ]
+    EMOTION_TAGS = {
+        "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
+                     "ぽよぽよ", "やわやわ"],
+        "neutral": ["かわいい", "cute", "adorable", "愛しい"],
+        "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
+        "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
+                 "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走",
+                 "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "tasty",
+                 "スープ", "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
+                 "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
+                 "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"],
+        "nsfw_ng": NG_WORDS,
+        "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
+                           "cosmetics", "makeup", "perfume", "nail"]
     }
+    HIGH_RISK_WORDS = ["もちもち", "ぷにぷに"]
 
     COSMETICS_TEMPLATES = {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
@@ -78,10 +81,17 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
         "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくる✨"]
     }
+    NG_PHRASES = ["投稿:", "ユーザー", "返事:", "お返事ありがとうございます",
+                  "フォーラム", "会話", "私は", "名前", "あなた", "○○", "・", "■", "？", "！" * 5]
+    reply_examples = [
+        "わぁ…リスさんに会えたの？ふわもこだぁ…🧸💕",
+        "夢の中でも癒しがいっぱいだね🌙☁️",
+        "リスさんとお昼寝…ぎゅってしたい…♡",
+        "きゅん…それ、絶対ふわもこ確定だよ🦝✨"
+    ]
 
-    # NGワードチェック
-    if any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
-        print(f"🛠️ DEBUG: NG/FOODワード検出: {text[:40]}")
+    if any(word.lower() in text.lower() for word in NG_WORDS):
+        print(f"🛠️ DEBUG: NGワード検出: {text[:40]}")
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
 
     if not text.strip():
@@ -89,9 +99,12 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
     # プロンプト
     prompt = (
-        f"以下の投稿に対して、ふわもこで癒し系の短い返事をしてください（40文字以内）:\n"
+        f"あなたは癒し系でふわもこなマスコットです。\n"
+        f"以下を参考に、心がほっこりする短い返信をしてください（40文字以内が目標）:\n"
+        f"例: {reply_examples[0]}\n"
+        f"例: {reply_examples[1]}\n"
         f"投稿: {text[:60]}\n"
-        "返事:"
+        "ふわもこ返信:"
     )
     
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=140).to(model.device)
@@ -106,15 +119,15 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             top_p=0.9
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^返事:\s*', '', reply)
+        reply = re.sub(r'^ふわもこ返信:\s*', '', reply)
         reply = re.sub(r'🧸{3,}|�|■.*?■|フォーラム|会話|ユーザー|投稿', '', reply).strip()
-        if reply and len(reply) >= 4:
+        if reply and 5 <= len(reply) <= 50 and not any(bad in reply for bad in NG_PHRASES):
             print(f"✅ SUCCESS: AI生成成功: {reply}")
             logging.debug(f"AI生成成功: {reply}")
             return reply
         else:
-            print(f"⚠️ WARN: AI生成失敗、テンプレ使用: {text[:40]}")
-            logging.warning(f"AI生成失敗、テンプレ使用: {text[:40]}")
+            print(f"💥 不適切な生成っぽいのでスキップ: {reply[:40]}")
+            logging.warning(f"不適切な生成: {reply[:40]}")
     except Exception as e:
         print(f"⚠️ ERROR: AI生成エラー: {e}")
         logging.error(f"AI生成エラー: {e}")
@@ -151,10 +164,9 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "Adorable! But maybe not a fluffy buddy? 🐑💬"
     ]
 
-    # 条件分岐（カテゴリ優先）
-    if any(word in text.lower() for word in SHONBORI_KEYWORDS):
+    if any(word in text.lower() for word in EMOTION_TAGS["shonbori"]):
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-    elif any(word.lower() in text.lower() for word in SAFE_COSMETICS):
+    elif any(word.lower() in text.lower() for word in EMOTION_TAGS["safe_cosmetics"]):
         for key in COSMETICS_TEMPLATES:
             if key.lower() in text.lower():
                 return random.choice(COSMETICS_TEMPLATES[key])
@@ -169,6 +181,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
 def check_skin_ratio(image_data):
     try:
+        if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
+            return 0.0
         cid = image_data.image.ref.link
         img = download_image_from_blob(cid, None)
         if img is None:
@@ -178,7 +192,6 @@ def check_skin_ratio(image_data):
         img_np = np.array(img)
         hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
 
-        # 肌色の範囲（ざっくり）
         lower_skin = np.array([0, 30, 60], dtype=np.uint8)
         upper_skin = np.array([20, 150, 255], dtype=np.uint8)
 
@@ -223,8 +236,10 @@ def download_image_from_blob(cid, client, did=None):
             print("✅ SUCCESS: CDN画像取得成功！")
             logging.debug("CDN画像取得成功")
             return Image.open(BytesIO(response.content))
-        except requests.exceptions.RequestException:
-            pass
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ ERROR: CDN取得失敗: {e}")
+            logging.error(f"CDN取得失敗: {e}")
+            continue
     
     if client and did:
         try:
@@ -232,8 +247,9 @@ def download_image_from_blob(cid, client, did=None):
             print("✅ SUCCESS: Blob API画像取得成功！")
             logging.debug("Blob API画像取得成功")
             return Image.open(BytesIO(blob.data))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ ERROR: Blob API取得失敗: {e}")
+            logging.error(f"Blob API取得失敗: {e}")
     
     print("❌ ERROR: 画像取得失敗")
     logging.debug("画像取得失敗")
@@ -265,14 +281,12 @@ def process_image(image_data, text="", client=None, post=None):
                (r > 200 and g > 180 and b < 180):
                 fluffy_count += 1
         
-        # 肌色比率チェック
         skin_ratio = check_skin_ratio(image_data)
-        if skin_ratio > 0.3:
+        if skin_ratio > 0.2:  # 閾値を0.3から0.2に緩和
             print("🌀 肌色比率多すぎてスキップ")
             logging.debug("肌色比率多すぎ:スキップ")
             return False
 
-        # 白1色NG、複数カラーでOK
         if fluffy_count >= 2 and total_colors >= 3:
             print("🎉 SUCCESS: ふわもこ色検出（複数カラー）！")
             logging.debug("ふわもこ色検出（複数カラー）")
@@ -281,13 +295,12 @@ def process_image(image_data, text="", client=None, post=None):
             print("🌀 単色または条件不足でスキップ")
             return False
 
-        # キーワード判定（画像なしの場合は中立キーワードでスキップ）
         check_text = text.lower()
-        if any(pos in check_text for pos in POSITIVE_KEYWORDS):
-            print("🎉 ポジティブワードヒット")
-            logging.debug("癒しキーワード検出")
+        if any(pos in check_text for pos in EMOTION_TAGS["fuwamoko"]):
+            print("🎉 FUWAMOKOキーワードヒット")
+            logging.debug("FUWAMOKOキーワード検出")
             return True
-        if any(neu in check_text for neu in NEUTRAL_KEYWORDS) and image_data is None:
+        if any(neu in check_text for neu in EMOTION_TAGS["neutral"]) and image_data is None:
             print("🌀 中立ワードのみ＋画像なし。スキップ")
             return False
 
@@ -381,7 +394,7 @@ def load_fuwamoko_uris():
                 content = f.read()
                 print(f"📦 INFO: fuwamoko_empathy_uris.txt size: {len(content)} bytes")
                 logging.debug(f"fuwamoko_empathy_uris.txt size: {len(content)} bytes")
-                if content.strip():  # 空でない場合のみ処理
+                if content.strip():
                     for line in content.splitlines():
                         if line.strip():
                             uri, timestamp = line.strip().split("|", 1)
@@ -414,7 +427,7 @@ def save_fuwamoko_uri(uri, indexed_at):
             fuwamoko_uris[normalized_uri] = indexed_at
             print(f"💾 SUCCESS: 履歴保存: {normalized_uri.split('/')[-1]}")
             logging.debug(f"履歴保存: {normalized_uri}")
-            load_fuwamoko_uris()  # 保存後に即再読み込み
+            load_fuwamoko_uris()
     except filelock.Timeout:
         print(f"⚠️ ERROR: ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
         logging.error(f"ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
@@ -457,10 +470,8 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         
-        # テキストの初期化（エラー対策）を修正
         text = getattr(actual_post.record, "text", "") if hasattr(actual_post, 'record') and hasattr(actual_post.record, 'text') else ""
 
-        # リプライチェック
         is_reply = getattr(actual_post.record, "reply", None) is not None if hasattr(actual_post, 'record') else False
         if is_reply and not (is_priority_post(text) or is_reply_to_self(post)):
             print(f"⏩ リプライスキップ (非@mirinchuuu/非自分宛): {text[:40]}")
@@ -515,7 +526,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             for i, image_data in enumerate(image_data_list):
                 print(f"🛠️ DEBUG: Processing image {i+1} of {len(image_data_list)} for post {post_id}")
                 if process_image(image_data, text, client=client, post=post):
-                    if random.random() >= 0.5:  # 50%スキップ
+                    if random.random() >= 0.5:
                         print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
                         logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
                         save_fuwamoko_uri(uri, indexed_at)
