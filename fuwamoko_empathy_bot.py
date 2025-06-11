@@ -48,12 +48,13 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     NG_WORDS = ["加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "salmon", "ham", "bacon", "meat",
                 "シチュー", "リップ", "口紅", "たらこ", "パスタ", "sandwich", "sausage"]
     SHONBORI_KEYWORDS = ["しょんぼり", "元気ない", "つらい", "かなしい", "さびしい", "しんどい", "つかれた", "へこんだ"]
-    POSITIVE_KEYWORDS = ["ふわふわ", "もこもこ", "もふもふ", "soft", "fluffy", "癒し", "たまらん"]
+    POSITIVE_KEYWORDS = ["ふわふわ", "もこもこ", "もふもふ", "soft", "fluffy", "たまらん"]
     NEUTRAL_KEYWORDS = ["かわいい", "cute", "adorable", "愛しい"]
     FOOD_WORDS = ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん", 
                   "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走", 
                   "まぐろ", "刺身", "寿司", "チーズ", "スナック", "たらこ", "明太子", 
                   "yummy", "delicious", "tasty", "snack", "sushi", "sashimi", "raw fish"]
+    SAFE_FOOD = ["latte", "カフェオレ", "パンケーキ", "ホットケーキ"]
 
     # NGワードチェック
     if any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
@@ -127,6 +128,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     elif any(word.lower() in text.lower() for word in NG_WORDS + FOOD_WORDS):
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
+    elif any(safe in text.lower() for safe in SAFE_FOOD):
+        return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     else:
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -195,9 +198,9 @@ def process_image(image_data, text="", client=None, post=None):
         for color in common_colors:
             r, g, b = color[0][:3]
             total_colors += 1
-            if (r > 200 and g > 200 and b > 200) or \  # 白
-               (r > 220 and g < 170 and b > 200) or \  # 明るいピンク
-               (r > 200 and g > 180 and b < 180):     # クリーム色系
+            if (r > 200 and g > 200 and b > 200) or \
+               (r > 220 and g < 170 and b > 200) or \
+               (r > 200 and g > 180 and b < 180):
                 fluffy_count += 1
         
         # 白1色NG、複数カラーでOK
@@ -211,12 +214,6 @@ def process_image(image_data, text="", client=None, post=None):
 
         # キーワード判定（画像なしの場合は中立キーワードでスキップ）
         check_text = text.lower()
-        NG_KEYWORDS = ["肉", "ハム", "ソーセージ", "ベーコン", "加工肉", "パスタ", "ステーキ", "餃子", "弁当", 
-                       "salmon", "bacon"]
-        if any(ng in check_text for ng in NG_KEYWORDS):
-            print("⚠️ ご飯系っぽい？ふわもこではないかも")
-            logging.debug("NGワードにヒット")
-            return False
         if any(pos in check_text for pos in POSITIVE_KEYWORDS):
             print("🎉 ポジティブワードヒット")
             logging.debug("癒しキーワード検出")
@@ -280,6 +277,15 @@ def detect_language(client, handle):
         print(f"⚠️ ERROR: 言語判定エラー: {e}")
         logging.error(f"言語判定エラー: {e}")
         return "ja"
+
+def is_priority_post(text):
+    return "@mirinchuuu" in text.lower()
+
+def is_reply_to_self(post):
+    reply = getattr(post.record, "reply", None)
+    if reply and hasattr(reply, "parent") and hasattr(reply.parent, "author"):
+        return reply.parent.author.handle == HANDLE
+    return False
 
 fuwamoko_uris = {}
 
@@ -371,6 +377,13 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         
+        # リプライチェック
+        is_reply = getattr(actual_post.record, "reply", None) is not None
+        if is_reply and not (is_priority_post(text) or is_reply_to_self(post)):
+            print(f"⏩ リプライスキップ (非@mirinchuuu/非自分宛, reply={getattr(actual_post.record, 'reply', None)}): {text[:40]}")
+            logging.debug(f"リプライスキップ: {post_id}")
+            return False
+
         print(f"🛠️ DEBUG: Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         logging.debug(f"Processing post {post_id} by @{actual_post.author.handle}, HANDLE={HANDLE}")
         if uri in fuwamoko_uris:
@@ -414,32 +427,33 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             return False
 
         if image_data_list:
-            image_data = image_data_list[0]
-            if process_image(image_data, text, client=client, post=post):
-                if random.random() >= 0.5:  # 50%スキップ
-                    print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
-                    logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
+            for i, image_data in enumerate(image_data_list):
+                print(f"🛠️ DEBUG: Processing image {i+1} of {len(image_data_list)} for post {post_id}")
+                if process_image(image_data, text, client=client, post=post):
+                    if random.random() >= 0.5:  # 50%スキップ
+                        print(f"⏭️ SKIP: ランダムスキップ（確率50%）: {post_id}")
+                        logging.debug(f"ランダムスキップ（確率50%）: {post_id}")
+                        save_fuwamoko_uri(uri, indexed_at)
+                        return False
+                    lang = detect_language(client, author)
+                    reply_text = open_calm_reply("", text, lang=lang)
+                    reply_ref = models.AppBskyFeedPost.ReplyRef(
+                        root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
+                        parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
+                    )
+                    print(f"🛠️ DEBUG: Sending post to @{author} with text: {reply_text}")
+                    logging.debug(f"Sending post to @{author} with text: {reply_text}")
+                    client.send_post(
+                        text=reply_text,
+                        reply_to=reply_ref
+                    )
                     save_fuwamoko_uri(uri, indexed_at)
-                    return False
-                lang = detect_language(client, author)
-                reply_text = open_calm_reply("", text, lang=lang)
-                reply_ref = models.AppBskyFeedPost.ReplyRef(
-                    root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
-                    parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
-                )
-                print(f"🛠️ DEBUG: Sending post to @{author} with text: {reply_text}")
-                logging.debug(f"Sending post to @{author} with text: {reply_text}")
-                client.send_post(
-                    text=reply_text,
-                    reply_to=reply_ref
-                )
-                save_fuwamoko_uri(uri, indexed_at)
-                print(f"✅ SUCCESS: 返信しました → @{author}")
-                logging.debug(f"返信成功: @{author}")
-                return True
-            else:
-                print(f"⏭️ SKIP: ふわもこ画像でないのでスキップ: {post_id}")
-                logging.debug(f"ふわもこ画像でない: {post_id}")
+                    print(f"✅ SUCCESS: 返信しました → @{author}")
+                    logging.debug(f"返信成功: @{author}")
+                    return True
+                else:
+                    print(f"⏭️ SKIP: ふわもこ画像でないのでスキップ: {post_id} (image {i+1})")
+                    logging.debug(f"ふわもこ画像でない: {post_id} (image {i+1})")
         return False
     except Exception as e:
         print(f"⚠️ ERROR: 投稿処理エラー: {e}")
