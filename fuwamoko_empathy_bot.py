@@ -443,12 +443,13 @@ def save_session_string(session_str):
 
 def has_image(post):
     actual_post = post.post if hasattr(post, 'post') else post
-    embed = getattr(actual_post, 'record', {}).get('embed', None)
-    if not embed:
+    record = getattr(actual_post, 'record', None)
+    if not record or not hasattr(record, 'embed'):
         return False
+    embed = record.embed
     return (hasattr(embed, 'images') and embed.images) or \
            (hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images')) or \
-           (embed.get('$type') == 'app.bsky.embed.recordWithMedia' and hasattr(embed, 'media') and hasattr(embed.media, 'images'))
+           (getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia' and hasattr(embed, 'media') and hasattr(embed.media, 'images'))
 
 def process_post(post, client, fuwamoko_uris, reposted_uris):
     try:
@@ -494,7 +495,6 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
             return False
 
         image_data_list = []
-        # embed の取得も修正
         embed = getattr(actual_post.record, 'embed', None) if hasattr(actual_post, 'record') and hasattr(actual_post.record, 'embed') else None
 
         if embed:
