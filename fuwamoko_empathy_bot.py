@@ -69,7 +69,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
                            "cosmetics", "makeup", "perfume", "nail"]
     }
-    HIGH_RISK_WORDS = ["もちもち", "ぷにぷに", "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"]  # 追加
+    HIGH_RISK_WORDS = ["もちもち", "ぷにぷに", "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"]
     SAFE_CHARACTER = {
         "アニメ": ["アニメ", "漫画", "マンガ", "キャラ", "イラスト", "ファンアート", "推し"],
         "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作"],
@@ -89,7 +89,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                   "フォーラム", "会話", "私は", "名前", "あなた", "○○", "・", "■", "？", "！" * 5]
     reply_examples = [
         "わぁ…リスさんに会えたの？ふわもこだぁ…🧸💕",
-        "夢の中でも癒しがいっぱいだね🌙 〜",
+        "夢の中でも癒しがいっぱいだね🌙☁️",  # typo修正
         "リスさんとお昼寝…ぎゅってしたい…♡",
         "きゅん…それ、絶対ふわもこ確定だよ🦝✨"
     ]
@@ -235,7 +235,6 @@ def download_image_from_blob(cid, client, did=None):
     ]
     headers = {'User-Agent': 'Mozilla/5.0'}
     
-    # did付きURLを優先
     for url in [u for u in cdn_urls if u]:
         try:
             response = requests.get(url, stream=True, timeout=10, headers=headers)
@@ -248,7 +247,6 @@ def download_image_from_blob(cid, client, did=None):
             logging.error(f"CDN取得失敗: {url} - {e}")
             continue
     
-    # didなしURLは非推奨なので削除
     if client and did:
         try:
             blob = client.com.atproto.repo.get_blob(did=did, cid=cid)
@@ -264,7 +262,7 @@ def download_image_from_blob(cid, client, did=None):
     return None
 
 def process_image(image_data, text="", client=None, post=None):
-    HIGH_RISK_WORDS = ["もちもち", "ぷにぷに", "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"]  # 追加
+    HIGH_RISK_WORDS = ["もちもち", "ぷにぷに", "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"]
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref') or not hasattr(image_data.image.ref, 'link'):
         print("❌ ERROR: 画像データ構造エラー")
         logging.debug("画像データ構造エラー")
