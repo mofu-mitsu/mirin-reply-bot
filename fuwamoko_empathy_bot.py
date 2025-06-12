@@ -71,19 +71,19 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     }
     HIGH_RISK_WORDS = ["もちもち", "ぷにぷに", "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"]
     SAFE_CHARACTER = {
-        "アニメ": ["アニメ", "マンガ", "漫画", "キャラ", "イラスト", "ファンアート", "推し"],
+        "アニメ": ["アニメ", "漫画", "マンガ", "キャラ", "イラスト", "ファンアート", "推し"],
         "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作"],
         "二次創作": ["二次創作", "ファンアート", "FA"]
     }
     COSMETICS_TEMPLATES = {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
-        "香水": ["この香り", "絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
-        "ネイル": ["そのネイル", "キラキラしてて最高💅✨", "ふわもこカラーで素敵〜💖", "]
+        "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
+        "ネイル": ["そのネイル、キラキラしてて最高💅✨", "ふわもこカラーで素敵〜💖"]  # typo修正
     }
     CHARACTER_TEMPLATES = {
         "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
-        "二次創作": ["この解釈", "天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
+        "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
     }
     NG_PHRASES = ["投稿:", "ユーザー", "返事:", "お返事ありがとうございます",
                   "フォーラム", "会話", "私は", "名前", "あなた", "○○", "・", "■", "？", "！" * 5]
@@ -447,7 +447,7 @@ def load_fuwamoko_uris():
 
 def save_fuwamoko_uri(uri, indexed_at):
     global fuwamoko_uris
-    normalized_uri = normalize_uri(uri)  # typo修正
+    normalized_uri = normalize_uri(uri)
     lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
     try:
         with lock:
@@ -574,8 +574,8 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
                     reply_ref = models.AppBskyFeedPost.ReplyRef(
-                        root=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid),
-                        parent=models.ComAtprotoRepoStrongRef.Main(uri=uri, cid=actual_post.cid)
+                        root=models.ComAtproto.RepoStrongRef.Main(uri=uri, cid=actual_post.cid),
+                        parent=models.ComAtproto.RepoStrongRef.Main(uri=uri, cid=actual_post.cid)
                     )
                     print(f"🛠️ DEBUG: 返信送信 to @{author} with text: {reply_text}")
                     logging.debug(f"返信送信 to @{author} with text: {reply_text}")
@@ -602,16 +602,16 @@ def run_once():
         session_str = load_session_string()
         if session_str:
             client.login(session_string=session_str)
-            print(f"🚀 START: ふわもこBot起動！ セッション再利用")
+            print(f"🚖 START: ふわもこBot起動！ セッション再利用")
             logging.info("Bot started: session reuse")
         else:
             client.login(HANDLE, APP_PASSWORD)
             session_str = client.export_session_string()
             save_session_string(session_str)
-            print(f"🚀 START: ふわもこBot起動！ 新規セッション")
+            print(f"🚖 START: ふわもこBot起動！ 新規セッション")
             logging.info("Bot started: new session")
 
-        print(f"🛠️ DEBUG: Bot HANDLE={HANDLE}")
+        print(f"🖥️ DEBUG: Bot HANDLE={HANDLE}")
         logging.debug(f"Bot HANDLE={HANDLE}")
         load_fuwamoko_uris()
         reposted_uris = load_reposted_uris()
