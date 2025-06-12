@@ -51,7 +51,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
         "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
         "meat", "bacon", "ham", "sausage", "pasta", "noodle",
-        "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出", "胸", "おっぱい", "谷間",
+        "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
         "肌フェチ", "soft skin", "fetish"
     ]
     EMOTION_TAGS = {
@@ -89,7 +89,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                   "フォーラム", "会話", "私は", "名前", "あなた", "○○", "・", "■", "？", "！" * 5]
     reply_examples = [
         "わぁ…リスさんに会えたの？ふわもこだぁ…🧸💕",
-        "夢の中でも癒しがいっぱいだね🌙☁️",  # typo修正
+        "夢の中でも癒しがいっぱいだね🌙☁️",
         "リスさんとお昼寝…ぎゅってしたい…♡",
         "きゅん…それ、絶対ふわもこ確定だよ🦝✨"
     ]
@@ -525,7 +525,7 @@ def process_post(post, client, fuwamoko_uris, reposted_uris):
                 image_data_list = embed.images
             elif hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images'):
                 image_data_list = embed.record.embed.images
-            elif getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia'):
+            elif getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia':  # typo修正
                 if hasattr(embed, 'media') and hasattr(embed.media, 'images'):
                     image_data_list = embed.media.images
 
