@@ -1,16 +1,20 @@
 name: Fuwamoko Empathy Bot
+
 on:
   workflow_dispatch:  # 手動実行のみ
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   run-fuwamoko-empathy-bot:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
-      contents: write  # Gitコミットの権限
-      actions: write   # Actions操作
+      contents: write
+      actions: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,6 +32,11 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: 💡 Override atproto to 0.0.65
+        run: |
+          pip uninstall -y atproto
+          pip install atproto==0.0.65
 
       - name: Preload open-calm-small
         run: |
