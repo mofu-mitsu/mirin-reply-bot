@@ -10,7 +10,7 @@ import re
 import logging
 import cv2
 import numpy as np
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, parse_qs
 
 # 🔽 🌱 外部ライブラリ
 from dotenv import load_dotenv
@@ -88,7 +88,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
         "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
     }
-    NG_PHRASES = ["投稿:", "ユーザー", "返事:", "お返事ありがとうございます", "フォーラム", "会話", "私は", "名前", "あなた", "○○", "・", "■"]
+    NG_PHRASES = [
+        "投稿:", "ユーザー", "返事:", "お返事ありがとうございます", "フォーラム", "会話",
+        "私は", "名前", "あなた", "○○", "・", "■", "!{5,}", r"\?{5,}", r"[\!\?]{5,}"
+    ]
 
     if LOCK_TEMPLATES:
         NORMAL_TEMPLATES_JP = [
@@ -178,7 +181,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^.*?ふわもこ返信:\s*', '', reply, flags=re.DOTALL).strip()
         reply = re.sub(r'[■\s]+|(ユーザー|投稿|私は|あなた|名前|[:#]).*', '', reply).strip()
-        if len(reply) < 4 or len(reply) > 60 or any(bad in reply.lower() for bad in NG_PHRASES):
+        if len(reply) < 4 or len(reply) > 60 or any(re.search(bad, reply.lower()) for bad in NG_PHRASES):
             print(f"💥 SKIP理由: 長さ or NGフレーズ: 「{reply}」")
             logging.warning(f"SKIP理由: 長さ or NGフレーズ: {reply}")
             return None
@@ -190,12 +193,21 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         logging.error(f"AI生成エラー: {e}")
         return None
 
-def validate_cid(cid):
-    if not isinstance(cid, str) or not re.match(r'^baf[0-9a-z]{50,60}$', cid):
-        print(f"⚠️ ERROR: 無効なCID: {cid}")
-        logging.error(f"無効なCID: {cid}")
-        return False
-    return True
+def extract_valid_cid(ref) -> str | None:
+    """CIDを抽出してバリデート"""
+    try:
+        # refがStrongRefオブジェクトの場合、.linkからCIDを取得
+        cid_candidate = str(ref.link) if hasattr(ref, 'link') else str(ref)
+        # 正規表現でCIDをチェック
+        if re.match(r'^baf[a-z0-9]{40,60}$', cid_candidate):
+            return cid_candidate
+        print(f"⚠️ 無効なCID検出: {cid_candidate}")
+        logging.error(f"無効なCID: {cid_candidate}")
+        return None
+    except Exception as e:
+        print(f"⚠️ CID抽出エラー: {e}")
+        logging.error(f"CID抽出エラー: {e}")
+        return None
 
 def check_skin_ratio(image_data, client=None):
     try:
@@ -203,8 +215,8 @@ def check_skin_ratio(image_data, client=None):
             print("❌ ERROR: 画像データ構造エラー")
             logging.debug("画像データ構造エラー")
             return 0.0
-        cid = str(image_data.image.ref)
-        if not validate_cid(cid):
+        cid = extract_valid_cid(image_data.image.ref)
+        if not cid:
             return 0.0
         img = download_image_from_blob(cid, client, did=None)
         if img is None:
@@ -247,7 +259,9 @@ def is_mutual_follow(client, handle):
         return False
 
 def download_image_from_blob(cid, client, did=None):
-    if not validate_cid(cid):
+    if not cid or not re.match(r'^baf[a-z0-9]{40,60}$', cid):
+        print(f"⚠️ ERROR: 無効なCID: {cid}")
+        logging.error(f"無効なCID: {cid}")
         return None
 
     cdn_urls = [
@@ -308,7 +322,10 @@ def process_image(image_data, text="", client=None, post=None):
         logging.debug("画像データ構造異常")
         return False
 
-    cid = str(image_data.image.ref)
+    cid = extract_valid_cid(image_data.image.ref)
+    if not cid:
+        return False
+
     try:
         author_did = post.post.author.did if post and hasattr(post, 'post') else None
         img = download_image_from_blob(cid, client, did=author_did)
@@ -323,10 +340,9 @@ def process_image(image_data, text="", client=None, post=None):
         top_colors = color_counts.most_common(5)
 
         fluffy_count = 0
-        total_colors = 0
+        total_colors = len(top_colors)
         for color in top_colors:
             r, g, b = color[0][:3]
-            total_colors += 1
             if (r > 200 and g > 200 and b > 200) or \
                (r > 220 and g < 50 and b > 200) or \
                (r > 200 and g > 150 and b < 50):
@@ -334,27 +350,27 @@ def process_image(image_data, text="", client=None, post=None):
 
         skin_ratio = check_skin_ratio(image_data, client=client)
         if skin_ratio > 0.2:
-            print("🦀 スキップ: 肌色比率高")
+            print("🦝 スキップ: 肌色比率高")
             logging.warning(f"スキップ: 肌色比率高: {skin_ratio:.2%}")
             return False
 
         check_text = text.lower()
         if any(word in check_text for word in HIGH_RISK_WORDS):
-            if skin_ratio < 0.2 and fluffy_count >= 2:
+            if skin_ratio < 0.2 and fluffy_count >= 1:
                 print("🎉 SUCCESS: 高リスクだが条件OK")
                 logging.info("高リスクだが条件OK")
                 return True
             else:
-                print("🦀 スキップ: 高リスク＋条件NG")
+                print("🦝 スキップ: 高リスク＋条件NG")
                 logging.warning("スキップ: 高リスク＋条件NG")
                 return False
 
-        if fluffy_count >= 2 and total_colors >= 3:
+        if fluffy_count >= 1:  # 条件緩和
             print("🎉 SUCCESS: ふわもこ色検出！")
             logging.info("ふわもこ色検出")
             return True
         else:
-            print("🦀 スキップ: 色条件不足")
+            print("🦝 スキップ: 色条件不足")
             logging.warning("スキップ: 色条件不足")
             return False
     except Exception as e:
@@ -495,7 +511,7 @@ def load_session_string():
         return None
     except Exception as e:
         print(f"⚠️ ERROR: セッション読み込みエラー: {e}")
-        logging.error(f"セッションエラー: {e}")
+        logging.error(f"セッション読み込みエラー: {e}")
         return None
 
 def save_session_string(session_str):
@@ -504,7 +520,7 @@ def save_session_string(session_str):
             f.write(session_str)
     except Exception as e:
         print(f"⚠️ ERROR: セッション保存エラー: {e}")
-        logging.error(f"セッションエラー: {e}")
+        logging.error(f"セッション保存エラー: {e}")
 
 def has_image(post):
     try:
@@ -515,8 +531,8 @@ def has_image(post):
         embed = record.embed
         return (
             (hasattr(embed, 'images') and embed.images) or
-            (hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images')) or
-            (getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia' and hasattr(embed, 'media') and hasattr(embed.media, 'images'))
+            (hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images') and embed.record.embed.images) or
+            (getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia' and hasattr(embed, 'media') and hasattr(embed.media, 'images') and embed.media.images)
         )
     except Exception as e:
         print(f"⚠️ ERROR: 画像チェックエラー: {e}")
@@ -556,7 +572,7 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
             return False
 
         author = actual_post.author.handle
-        indexed_at = post_data.post.indexed_at
+        indexed_at = actual_post.indexed_at
 
         if not has_image(post_data):
             print(f"🦝 スキップ: 画像なし: {post_id}")
@@ -569,7 +585,7 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
             if hasattr(embed, 'images') and embed.images:
                 image_data_list = embed.images
             elif hasattr(embed, 'record') and hasattr(embed.record, 'embed') and hasattr(embed.record.embed, 'images'):
-                image_data_list = embed.record.embed
+                image_data_list = embed.record.embed.images
             elif getattr(embed, '$type', '') == 'app.bsky.embed.recordWithMedia' and hasattr(embed, 'media') and hasattr(embed.media, 'images'):
                 image_data_list = embed.media.images
 
@@ -646,7 +662,7 @@ def run_once():
             except Exception as e:
                 print(f"⚠️ ERROR: スレッド取得エラー: {e} (URI: {post.post.uri})")
                 logging.error(f"スレッド取得エラー: {e} (URI: {post.post.uri})")
-            time.sleep(random.uniform(10, 20))
+            time.sleep(1.0)
 
     except Exception as e:
         print(f"⚠️ ERROR: Bot実行エラー: {e}")
