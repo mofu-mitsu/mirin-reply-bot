@@ -56,31 +56,20 @@ LOCK_CONFIG = {
     "CHARACTER_TEMPLATES": True
 }
 
-def is_fluffy_color(r, g, b):
-    """色がふわもこ系（白、ピンク、クリーム、パステルパープル）かを判定"""
-    # 白系
-    if r > 230 and g > 230 and b > 230:
-        return True
-    # ピンク系
-    if r > 220 and g < 100 and b > 180:
-        return True
-    # クリーム色系
-    if r > 240 and g > 230 and b > 180:
-        return True
-    # パステルパープル系（チャッピー提案）
-    if r > 220 and b > 220 and abs(r - b) < 30 and g > 200:
-        return True
-    return False
-
-def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    # 🔽 辞書定義（チャッピー保護）
-    NG_WORDS = [
-        "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
-        "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
-        "meat", "bacon", "ham", "sausage", "pasta", "noodle",
-        "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
-        "肌フェチ", "soft skin", "fetish"
+# 🔽 グローバル辞書初期化（チャッピー保護）
+try:
+    HIGH_RISK_WORDS
+except NameError:
+    logging.error("⚠️⚖️ HIGH_RISK_WORDSが未定義。デフォルトを再注入します。")
+    HIGH_RISK_WORDS = [
+        "もちもち", "ぷにぷに", "ぷよぷよ", "やわらかい", "むにゅむにゅ", "エロ", "えっち",
+        "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"
     ]
+
+try:
+    EMOTION_TAGS
+except NameError:
+    logging.error("⚠️⚖️ EMOTION_TAGSが未定義。デフォルトを再注入します。")
     EMOTION_TAGS = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
                      "ぽよぽよ", "やわやわ"],
@@ -92,51 +81,76 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                  "スープ", "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
                  "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
                  "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"],
-        "nsfw_ng": NG_WORDS,
         "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
                            "cosmetics", "makeup", "perfume", "nail"]
     }
-    HIGH_RISK_WORDS = ["もちもち", "ぷにぷに", "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"]
+
+try:
+    SAFE_CHARACTER
+except NameError:
+    logging.error("⚠️⚖️ SAFE_CHARACTERが未定義。デフォルトを再注入します。")
     SAFE_CHARACTER = {
         "アニメ": ["アニメ", "漫画", "マンガ", "キャラ", "イラスト", "ファンアート", "推し"],
         "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作"],
         "二次創作": ["二次創作", "ファンアート", "FA"]
     }
+
+try:
+    COSMETICS_TEMPLATES
+except NameError:
+    logging.error("⚠️⚖️ COSMETICS_TEMPLATESが未定義。デフォルトを再注入します。")
     COSMETICS_TEMPLATES = {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
         "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
         "ネイル": ["そのネイル、キラキラしてて最高💅✨", "ふわもこカラーで素敵〜💖"]
     }
+
+try:
+    CHARACTER_TEMPLATES
+except NameError:
+    logging.error("⚠️⚖️ CHARACTER_TEMPLATESが未定義。デフォルトを再注入します。")
     CHARACTER_TEMPLATES = {
         "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
         "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
     }
+
+def is_fluffy_color(r, g, b):
+    """色がふわもこ系（白、ピンク、クリーム、パステルパープル）かを判定"""
+    # RGB判定
+    # 白系
+    if r > 230 and g > 230 and b > 230:
+        return True
+    # ピンク系
+    if r > 220 and g < 100 and b > 180:
+        return True
+    # クリーム色系
+    if r > 240 and g > 230 and b > 180:
+        return True
+    # パステルパープル系
+    if r > 220 and b > 220 and abs(r - b) < 30 and g > 200:
+        return True
+    # HSV補強（チャッピー提案検討）
+    hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
+    h, s, v = hsv
+    if 200 <= h <= 300 and s < 50 and v > 200:  # パステル系（紫～ピンク）
+        return True
+    return False
+
+def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
+    # 🔽 辞書保護チェック
+    NG_WORDS = EMOTION_TAGS.get("nsfw_ng", [
+        "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
+        "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
+        "meat", "bacon", "ham", "sausage", "pasta", "noodle",
+        "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
+        "肌フェチ", "soft skin", "fetish"
+    ])
     NG_PHRASES = [
         "投稿:", "ユーザー", "返事:", "お返事ありがとうございます", "フォーラム", "会話",
         "私は", "名前", "あなた", "○○", "・", "■", "!{5,}", r"\?{5,}", r"[!？]{5,}",
         "ふわもこ返信", "例文", "擬音語", "癒し系", "マスクット", "マスケット", "共感", "動物"
-]
-
-    # 辞書保護チェック
-    if not LOCK_CONFIG["EMOTION_TAGS"] and not EMOTION_TAGS:
-        logging.error("⚠️⚖️ TEMPLATE VIOLATION DETECTED: EMOTION_TAGS missing!")
-        logging.warning("🦝 Restoring default EMOTION_TAGS to maintain fuwamoko integrity")
-        EMOTION_TAGS = {
-            "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
-                         "ぽよぽよ", "やわやわ"],
-            "neutral": ["かわいい", "cute", "adorable", "愛しい"],
-            "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
-            "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
-                     "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走",
-                     "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "tasty",
-                     "スープ", "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
-                     "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
-                     "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"],
-            "nsfw_ng": NG_WORDS,
-            "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
-                               "cosmetics", "makeup", "perfume", "nail"]
-        }
+    ]
 
     # テンプレ（チャッピー保護）
     if LOCK_CONFIG["TEMPLATES"]:
@@ -321,22 +335,22 @@ def download_image_from_blob(cid, client, did=None):
             logging.debug(f"CDNリクエスト開始: CID={cid}, url={url}")
             response = requests.get(url, headers=headers, timeout=10, stream=True)
             response.raise_for_status()
-            print(f"✅ CDN取得成功: バイナリ受信完了（サイズ: {len(response.content)} bytes）")
+            print(f"✅ SUCCESS: CDN取得成功: サイズ={len(response.content)} bytes")
             logging.debug(f"CDN取得成功: サイズ={len(response.content)} bytes, url={url}")
             img_data = BytesIO(response.content)
             try:
                 img = Image.open(img_data)
-                print(f"✅ SUCCESS: CDN画像形式={img.format}, サイズ={img.size}")
-                logging.info(f"CDN画像形式={img.format}, サイズ={img.size}")
+                print(f"✅ SUCCESS: 画像形式={img.format}, サイズ={img.size}")
+                logging.info(f"画像形式={img.format}, サイズ={img.size}")
                 img.load()  # 強制ロード
                 return img
             except UnidentifiedImageError:
-                print(f"❌ ERROR: 不明な画像形式（PILで開けない）: url={url}")
+                print(f"❌ ERROR: 不明な画像形式: url={url}")
                 logging.error(f"不明な画像形式: url={url}")
                 return None
             except Exception as e:
-                print(f"⚠️ ERROR: 画像読み込みエラー（PIL）: {type(e).__name__}: {e}, url={url}")
-                logging.error(f"画像読み込みエラー（PIL）: {type(e).__name__}: {e}, url={url}")
+                print(f"⚠️ ERROR: 画像読み込みエラー: {type(e).__name__}: {e}, url={url}")
+                logging.error(f"画像読み込みエラー: {type(e).__name__}: {e}, url={url}")
                 return None
         except requests.RequestException as e:
             print(f"⚠️ ERROR: CDN取得失敗: {type(e).__name__}: {e}, url={url}")
@@ -358,7 +372,7 @@ def download_image_from_blob(cid, client, did=None):
                 img.load()  # 強制ロード
                 return img
             except UnidentifiedImageError:
-                print(f"❌ ERROR: 不明な画像形式（PILで開けない）: Blob API")
+                print(f"❌ ERROR: 不明な画像形式: Blob API")
                 logging.error(f"不明な画像形式: Blob API")
                 return None
             except Exception as e:
@@ -370,8 +384,8 @@ def download_image_from_blob(cid, client, did=None):
             logging.error(f"Blob APIエラー: {type(e).__name__}: {e}")
             return None
 
-    print("❌ ERROR: 画像取得失敗 (最終)")
-    logging.error("画像取得失敗 (最終)")
+    print("❌ ERROR: 画像取得失敗")
+    logging.error("画像取得失敗")
     return None
 
 def process_image(image_data, text="", client=None, post=None):
@@ -388,7 +402,7 @@ def process_image(image_data, text="", client=None, post=None):
         author_did = post.post.author.did if post and hasattr(post, 'post') else None
         img = download_image_from_blob(cid, client, did=author_did)
         if img is None:
-            print("❌ 画像取得失敗: スキップ")
+            print("❌ ERROR: 画像取得失敗: スキップ")
             logging.warning("画像取得失敗: スキップ")
             return False
 
@@ -410,15 +424,20 @@ def process_image(image_data, text="", client=None, post=None):
             return False
 
         check_text = text.lower()
-        if any(word in check_text for word in HIGH_RISK_WORDS):
-            if skin_ratio < 0.2 and fluffy_count >= 2:
-                print("🎉 SUCCESS: 高リスクだが条件OK")
-                logging.info("高リスクだが条件OK")
-                return True
-            else:
-                print("🦝 スキップ: 高リスク＋条件NG")
-                logging.warning("スキップ: 高リスク＋条件NG")
-                return False
+        try:
+            if any(word in check_text for word in HIGH_RISK_WORDS):
+                if skin_ratio < 0.2 and fluffy_count >= 2:
+                    print("🎉 SUCCESS: 高リスクだが条件OK")
+                    logging.info("高リスクだが条件OK")
+                    return True
+                else:
+                    print("🦝 スキップ: 高リスク＋条件NG")
+                    logging.warning("スキップ: 高リスク＋条件NG")
+                    return False
+        except NameError:
+            logging.error("⚠️⚖️ HIGH_RISK_WORDS未定義。処理をスキップ")
+            print("🦝 スキップ: HIGH_RISK_WORDS未定義")
+            return False
 
         if fluffy_count >= 2:
             print("🎉 SUCCESS: ふわもこ色検出！")
