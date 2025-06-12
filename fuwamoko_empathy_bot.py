@@ -100,7 +100,7 @@ ORIGINAL_TEMPLATES = {
 try:
     _ = globals()["HIGH_RISK_WORDS"]
 except KeyError:
-    logging.error("⚠️⚖️ HIGH_RISK_WORDSが未定義。デフォルトを再注入します。")
+    logging.error("⚠️⚖️ HIGH_RISK_WORDSが未定義。デフォルトを注入します。")
     globals()["HIGH_RISK_WORDS"] = [
         "もちもち", "ぷにぷに", "ぷよぷよ", "やわらかい", "むにゅむにゅ", "エロ", "えっち",
         "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"
@@ -109,10 +109,10 @@ except KeyError:
 try:
     _ = globals()["EMOTION_TAGS"]
 except KeyError:
-    logging.error("⚠️⚖️ EMOTION_TAGSが未定義。デフォルトを再注入します。")
+    logging.error("⚠️⚖️ EMOTION_TAGSが未定義。デフォルトを注入します。")
     globals()["EMOTION_TAGS"] = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
-                     "ぽよぽよ", "やわやわ"],
+                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ"],  # 新ワード追加
         "neutral": ["かわいい", "cute", "adorable", "愛しい"],
         "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
         "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
@@ -128,7 +128,7 @@ except KeyError:
 try:
     _ = globals()["SAFE_CHARACTER"]
 except KeyError:
-    logging.error("⚠️⚖️ SAFE_CHARACTERが未定義。デフォルトを再注入します。")
+    logging.error("⚠️⚖️ SAFE_CHARACTERが未定義。デフォルトを注入します。")
     globals()["SAFE_CHARACTER"] = {
         "アニメ": ["アニメ", "漫画", "マンガ", "イラスト"],
         "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作"],
@@ -138,7 +138,7 @@ except KeyError:
 try:
     _ = globals()["GENERAL_TAGS"]
 except KeyError:
-    logging.error("⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを再注入します。")
+    logging.error("⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
     globals()["GENERAL_TAGS"] = ["キャラ", "ファンアート", "推し"]
 
 # テンプレ監査ログ
@@ -154,7 +154,7 @@ def audit_templates_changes(old, new):
                     "before": old,
                     "after": new
                 }, ensure_ascii=False) + "\n")
-            logging.warning(f"⚖️⚠️ テンプレ変更検出")
+            logging.warning("⚖️⚠️ テンプレ変更検出")
     except Exception as e:
         logging.error(f"⚠️ テンプレ監査エラー: {type(e).__name__}: {e}")
 
@@ -658,9 +658,12 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                         logging.debug(f"スキップ: 返信生成失敗: {post_id}")
                         save_fuwamoko_uri(uri, indexed_at)
                         return False
+                    # StrongRefをcreate_strong_refで生成
+                    root_ref = client.create_strong_ref(uri=uri, cid=actual_post.cid)
+                    parent_ref = client.create_strong_ref(uri=uri, cid=actual_post.cid)
                     reply_ref = models.AppBskyFeedPost.ReplyRef(
-                        root=models.AppBskyFeedPost.StrongRef(uri=uri, cid=actual_post.cid),
-                        parent=models.AppBskyFeedPost.StrongRef(uri=uri, cid=actual_post.cid)
+                        root=root_ref,
+                        parent=parent_ref
                     )
                     print(f"🦊 返信送信: @{author}: {reply_text} ({post_id})")
                     logging.debug(f"返信送信: @{author}: {reply_text} ({post_id})")
@@ -674,12 +677,12 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                     logging.warning(f"スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
                     return False
             except Exception as e:
-                print(f"✖️ 画像処理エラー: {type(e).__name__}: {e} ({post_id})")
-                logging.error(f"画像処理エラー: {type(e).__name__}: {e} ({post_id})")
+                print(f"✖️ 画像処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri}, cid={actual_post.cid})")
+                logging.error(f"画像処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri}, cid={actual_post.cid})")
                 return False
     except Exception as e:
-        print(f"✖️ 投稿処理エラー: {type(e).__name__}: {e} ({post_id})")
-        logging.error(f"投稿処理エラー: {type(e).__name__}: {e} ({post_id})")
+        print(f"✖️ 投稿処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri})")
+        logging.error(f"投稿処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri})")
         return False
 
 def run_once():
@@ -717,5 +720,8 @@ def run_once():
         logging.error(f"Bot実行エラー: {type(e).__name__}: {e}")
 
 if __name__ == "__main__":
-    load_dotenv()
-    run_once()
+    try:
+        load_dotenv()
+        run_once()
+    except Exception as e:
+        logging.error(f"Bot起動エラー: {type(e).__name__}: {e}")
