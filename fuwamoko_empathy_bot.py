@@ -85,7 +85,7 @@ ORIGINAL_TEMPLATES = {
     ],
     "COSMETICS_TEMPLATES_JP": {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
-        "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
+        "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂い〜！💕"],
         "ネイル": ["そのネイル、キラキラしてて最高💅✨", "ふわもこカラーで素敵〜💖"]
     },
     "COSMETICS_TEMPLATES_EN": {
@@ -96,7 +96,7 @@ ORIGINAL_TEMPLATES = {
     "CHARACTER_TEMPLATES_JP": {
         "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
-        "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
+        "fanart": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
     },
     "CHARACTER_TEMPLATES_EN": {
         "anime": ["Such a fluffy anime character! 💕", "They look like someone from a dream world~ 🌟"],
@@ -126,13 +126,13 @@ except KeyError:
         "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
         "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
                  "おいしい", "うまい", "いただきます", "たべた", "ごちそう", "ご馳走",
-                 "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "tasty",
-                 "スープ", "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
+                 "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "スープ",
+                 "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
                  "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
                  "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"],
         "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
-                           "cosmetics", "makeup", "perfume", "nail", "lip", "lipstick", "lip gloss", "lip balm",
-                           "fragrance", "scent", "nail art", "manicure", "nails"]
+                          "cosmetics", "makeup", "perfume", "nail", "lip", "lipstick", "lip gloss", "lip balm",
+                          "fragrance", "scent", "nail art", "manicure", "nails"]
     }
 
 try:
@@ -142,55 +142,57 @@ except KeyError:
     globals()["SAFE_CHARACTER"] = {
         "アニメ": ["アニメ", "漫画", "マンガ", "イラスト", "anime", "illustration", "drawing", "anime art", "manga", "fanart"],
         "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作", "oc", "original character", "my oc"],
-        "二次創作": ["二次創作", "FA", "fanart", "fan art", "fandom art"]
+        "fanart": ["ファンアート", "FA", "fanart", "fan art", "fandom art"]
     }
 
 try:
     _ = globals()["GENERAL_TAGS"]
 except KeyError:
-    logging.error("⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
-    globals()["GENERAL_TAGS"] = ["キャラ", "ファンアート", "推し", "art", "drawing"]
+    logging.error("⚠️⚖️ GENERAL_TAGSが未定義")
+    logging.error("ERROR: ⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
+    globals()['GENERAL_TAGS'] = ["キャラ", "推し", "art", "drawing"]
 
-# テンプレ監査ログ
+# テンプレート監査ログ
 TEMPLATE_AUDIT_LOG = "template_audit_log.txt"
 
 def audit_templates_changes(old, new):
-    """テンプレ変更を監視・記録"""
+    """テンプレート変更を監視・記録"""
     try:
         if old != new:
             with open(TEMPLATE_AUDIT_LOG, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamped": datetime.now().isoformat(),
                     "before": old,
                     "after": new
                 }, ensure_ascii=False) + "\n")
-            logging.warning("⚖️⚠️ テンプレ変更検出")
+            logging.warning("⚖️⚠️ WARNING: テンプレート変更検出")
     except Exception as e:
-        logging.error(f"⚠️ テンプレ監査エラー: {type(e).__name__}: {e}")
+        logging.error(f"⚠️⚖️ テンプレート監査エラー: {type(e).__name__}: {e}")
+}
 
 def check_template_integrity(templates):
     """テンプレの改変チェック"""
     if not LOCK_TEMPLATES:
-        logging.warning("⚠️ LOCK_TEMPLATES無効、改変リスク")
+        logging.warning("⚖️⚠️ LOCK_TEMPLATES無効力、改変リスク")
         return False
-    for key in ORIGINAL_TEMPLATES:
-        if templates.get(key) != ORIGINAL_TEMPLATES[key]:
-            logging.error(f"⚖️⚠️ {key} 改変検出、復元推奨")
+    for key in templates:
+        if key in ORIGINAL_TEMPLATES and templates.get(key) != ORIGINAL_T[key]:
+            logging.error(f"⚖️⚠️ ERROR: {key} 改変検出、復元推奨")
             return False
     return True
 
 def auto_revert_templates(templates):
     """テンプレをオリジナルに復元"""
     if LOCK_TEMPLATES:
-        for key in ORIGINAL_TEMPLATES:
-            templates[key] = deepcopy(ORIGINAL_TEMPLATES[key])
-        logging.info("✅ テンプレ復元完了")
+        for key in ORIGINAL_T:
+            templates[key] = deepcopy(ORIGINAL_T[key])
+        logging.info("✅ SUCCESS: テンプレ復元完了")
         return templates
     return templates
 
 def is_fluffy_color(r, g, b):
-    """色がふわもこ系（白、ピンク、クリーム、パステルパープル、夜空紫）かを判定"""
-    logging.debug(f"色判定: RGB=({r}, {g}, {b})")
+    """色がふわもこ系（白、ピンク、クリーム、パステルパープル、夜空紫）か判定"""
+    logging.debug(f"色判定: RGB=({r},{g},{}),b})")
     if r > 230 and g > 230 and b > 230:  # 白系
         logging.debug("白系検出")
         return True
@@ -214,7 +216,7 @@ def is_fluffy_color(r, g, b):
         return True
     return False
 
-def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
+def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [
         "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
         "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
@@ -225,9 +227,9 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
     NG_PHRASES = [
         r"(?:投稿|ユーザー|例文|擬音語|マスクット|マスケット|フォーラム|返事|会話|共感)",
         r"(?:あなた|○○|名前)",
-        r"(?:ふわもこ返信|癒し系)",  # プレフィックス残り
-        r"[■#]",  # 記号
-        r"!{5,}", r"\?{5,}", r"[!？]{5,}",  # 記号過多
+        r"(?:ふわもこ返信|癒し系)",
+        r"[■#]{2,}",
+        r"!{5,}", r"\?{5,}", r"[!？]{5,}"
     ]
 
     templates = deepcopy(ORIGINAL_TEMPLATES)
@@ -281,15 +283,14 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
 
     prompt = (
         "あなたは癒し系のふわもこマスコットです。\n"
-        "以下の例文のように、優しくて心がほっこりする短い返事（40文字以内）をしてください:\n"
-        "注意：同じフレーズを繰り返さないでください。\n"
+        "投稿内容に対して、かわいくて心が温かくなるような、短い返信をしてください（最大40文字）。\n"
+        "繰り返しや定型文にならないようにしてください。\n"
         "### 例:\n"
         "- わぁ〜もふもふの子に会えたの？🧸💕\n"
         "- 今日もふわふわ癒されるね〜🌙✨\n"
-        "- ふわもこで癒される〜♡💖\n"
         "- そんな表情、かわいすぎるよ〜🐾🌼\n"
         "- ちょこんって座ってるの愛しすぎ…🫧\n"
-        f"### 投稿内容:\n{text.strip()[:60]}\n"
+        f"### 投稿:\n{text.strip()[:60]}\n"
         "### ふわもこ返信:"
     )
 
@@ -297,23 +298,23 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=40,
+            max_new_tokens=50,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,
-            top_k=40,
-            top_p=0.9,
+            temperature=0.8,
+            top_k=50,
+            top_p=0.95,
             no_repeat_ngram_size=2
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^.*?###\s*ふわ*も*こ*返信:*\s*', '', reply, flags=re.DOTALL).strip()
         reply = re.sub(r'^ふわ[\wぁ-んァ-ンー]{0,4}(は|って)', '', reply).strip()
-        
-        # ▼ NGワード含んでるものをカット
-        reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|癒し系|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
+        reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
+
         if len(reply) < 3 or len(reply) > 40 or any(re.search(bad, reply.lower()) for bad in NG_PHRASES):
             logging.warning(f"SKIP理由: 長さ or NGフレーズ: {reply[:60]}")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
         logging.debug(f"AI生成: {reply}")
         return reply
     except Exception as e:
@@ -345,7 +346,7 @@ def check_skin_ratio(img_pil_obj):
             return 0.0
 
         hsv_img = cv2.cvtColor(img_np, cv2.COLOR_BGR2HSV)
-        lower = np.array([5, 20, 70], dtype=np.uint8)  # 黄味寄り肌色
+        lower = np.array([5, 20, 70], dtype=np.uint8)
         upper = np.array([25, 180, 255], dtype=np.uint8)
         mask = cv2.inRange(hsv_img, lower, upper)
         skin_area = np.sum(mask > 0)
@@ -455,7 +456,7 @@ def process_image(image_data, text="", client=None, post=None):
         logging.debug(f"ふわもこ色カウント: {fluffy_count}")
 
         skin_ratio = check_skin_ratio(img)
-        if skin_ratio > 0.4:  # 閾値を0.2から0.4に緩和
+        if skin_ratio > 0.4:
             logging.warning(f"スキップ: 肌色比率高: {skin_ratio:.2%}")
             return False
 
@@ -543,7 +544,10 @@ def normalize_uri(uri):
             uri = f"at://{uri.lstrip('/')}"
         parts = uri.split('/')
         if len(parts) >= 5:
-            return f"at://{parts[2]}/{parts[3]}/{parts[4]}"
+            normalized = f"at://{parts[2]}/{parts[3]}/{parts[4]}"
+            logging.debug(f"URI正規化: {uri} -> {normalized}")
+            return normalized
+        logging.warning(f"URI正規化失敗: 不正な形式: {uri}")
         return uri
     except Exception as e:
         logging.error(f"URI正規化エラー: {type(e).__name__}: {e}")
@@ -560,23 +564,25 @@ def load_fuwamoko_uris():
                 if content.strip():
                     for line in content.splitlines():
                         if line.strip():
-                            uri, timestamp = line.strip().split("|", 1)
-                            fuwamoko_uris[normalize_uri(uri)] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                            try:
+                                uri, timestamp = line.strip().split("|", 1)
+                                normalized_uri = normalize_uri(uri)
+                                fuwamoko_uris[normalized_uri] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                            except ValueError as e:
+                                logging.error(f"履歴行解析エラー: {line.strip()}: {e}")
+                                continue
                 logging.info(f"ふわもこURI読み込み: {len(fuwamoko_uris)}件")
         except Exception as e:
             logging.error(f"履歴読み込みエラー: {type(e).__name__}: {e}")
+    else:
+        logging.info("ふわもこ履歴ファイルが存在しません。新規作成します。")
 
 def save_fuwamoko_uri(uri, indexed_at):
     global fuwamoko_uris
     normalized_uri = normalize_uri(uri)
-    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=10.0)
+    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=5.0)
     try:
         with lock:
-            if os.path.exists(FUWAMOKO_FILE):
-                with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                with open(FUWAMOKO_FILE + '.bak', 'w', encoding='utf-8') as f:
-                    f.write(content)
             if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
                 logging.debug(f"スキップ: 24時間以内: {normalized_uri}")
                 return
@@ -639,7 +645,8 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
 
         print(f"🦊 POST処理開始: @{actual_post.author.handle} ({post_id})")
         logging.info(f"POST処理開始: @{actual_post.author.handle} ({post_id})")
-        if normalize_uri(uri) in fuwamoko_uris:
+        normalized_uri = normalize_uri(uri)
+        if normalized_uri in fuwamoko_uris:
             print(f"🦝 スキップ: 既存投稿: {post_id}")
             logging.debug(f"スキップ: 既存投稿: {post_id}")
             return False
@@ -718,6 +725,7 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                 else:
                     print(f"🦝 スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
                     logging.warning(f"スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
+                    save_fuwamoko_uri(uri, indexed_at)  # 画像NGでも履歴保存
                     return False
             except Exception as e:
                 print(f"✖️ 画像処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri}, cid={actual_post.cid})")
