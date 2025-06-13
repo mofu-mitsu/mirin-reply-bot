@@ -33,13 +33,12 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # 🔽 🧠 Transformers用設定
 MODEL_NAME = "cyberagent/open-calm-small"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=".cache", force_download=True)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=".cache")
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     cache_dir=".cache",
     torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-    device_map="auto",
-    force_download=True
+    device_map="auto"
 )
 tokenizer.pad_token = tokenizer.eos_token
 
@@ -112,7 +111,7 @@ except KeyError:
     logging.error("⚠️⚖️ EMOTION_TAGSが未定義。デフォルトを注入します。")
     globals()["EMOTION_TAGS"] = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
-                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ"],  # 新ワード追加
+                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ", "ぽこぽこ"],  # 新ワード
         "neutral": ["かわいい", "cute", "adorable", "愛しい"],
         "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
         "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
@@ -246,6 +245,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     prompt = (
         "あなたは癒し系のふわもこマスコットです。\n"
         "以下の例文のように、優しくて心がほっこりする短い返事（40文字以内）をしてください:\n"
+        "注意：同じフレーズを繰り返さないでください。\n"
         "### 例:\n"
         "- わぁ〜もふもふの子に会えたの？🧸💕\n"
         "- 今日もふわふわ癒されるね〜🌙✨\n"
@@ -263,7 +263,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             do_sample=True,
             temperature=0.7,
             top_k=40,
-            top_p=0.9
+            top_p=0.9,
+            no_repeat_ngram_size=2  # 2-gram繰り返し防止
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^.*?###\s*ふわ*も*こ*返信:*\s*', '', reply, flags=re.DOTALL).strip()
@@ -336,6 +337,27 @@ def download_image_from_blob(cid, client, did=None):
         logging.error(f"無効なCID: {cid}")
         return None
 
+    if client and did:
+        try:
+            logging.debug(f"Blob APIリクエスト開始: CID={cid}, DID={did}")
+            blob = client.com.atproto.repo.get_blob(cid=cid, did=did)
+            logging.debug(f"Blob API取得成功: size={len(blob.data)} bytes")
+            img_data = BytesIO(blob.data)
+            try:
+                img = Image.open(img_data)
+                logging.info(f"Blob画像形式={img.format}, サイズ={img.size}")
+                img.load()
+                return img
+            except (UnidentifiedImageError, OSError) as e:
+                logging.error(f"Blob画像解析失敗: {type(e).__name__}: {e}")
+                return None
+            except Exception as e:
+                logging.error(f"Blob画像読み込みエラー: {type(e).__name__}: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"Blob APIエラー: {type(e).__name__}: {e}")
+            # CDNにフォールバック
+
     did_safe = unquote(did) if did else None
     cdn_urls = [
         f"https://cdn.bsky.app/img/feed_thumbnail/plain/{quote(did_safe)}/{quote(cid)}@jpeg" if did_safe else None,
@@ -359,32 +381,11 @@ def download_image_from_blob(cid, client, did=None):
                 logging.error(f"画像解析失敗: {type(e).__name__}: {e}, url={url}")
                 return None
             except Exception as e:
-                logging.error(f"画像読み込みエラー: {type(e).__name__}: {e}, url={url}")
+                logging.error(f"画像取得エラー: {type(e).__name__}: {e}, url={url}")
                 return None
         except requests.RequestException as e:
             logging.error(f"CDN取得失敗: {type(e).__name__}: {e}, url={url}")
             continue
-
-    if client and did_safe:
-        try:
-            logging.debug(f"Blob APIリクエスト開始: CID={cid}")
-            blob = client.com.atproto.repo.get_blob(cid=cid, did=did_safe)
-            logging.debug(f"Blob API取得成功: size={len(blob.data)} bytes")
-            img_data = BytesIO(blob.data)
-            try:
-                img = Image.open(img_data)
-                logging.info(f"Blob画像形式={img.format}, サイズ={img.size}")
-                img.load()
-                return img
-            except (UnidentifiedImageError, OSError) as e:
-                logging.error(f"Blob画像解析失敗: {type(e).__name__}: {e}")
-                return None
-            except Exception as e:
-                logging.error(f"Blob画像読み込みエラー: {type(e).__name__}: {e}")
-                return None
-        except Exception as e:
-            logging.error(f"Blob APIエラー: {type(e).__name__}: {e}")
-            return None
 
     logging.error("画像取得失敗")
     return None
@@ -658,9 +659,17 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                         logging.debug(f"スキップ: 返信生成失敗: {post_id}")
                         save_fuwamoko_uri(uri, indexed_at)
                         return False
-                    # StrongRefをcreate_strong_refで生成
-                    root_ref = client.create_strong_ref(uri=uri, cid=actual_post.cid)
-                    parent_ref = client.create_strong_ref(uri=uri, cid=actual_post.cid)
+                    # StrongRefを自前で構築（atproto==0.0.61対応）
+                    root_ref = {
+                        "$type": "app.bsky.feed.post#main",
+                        "uri": uri,
+                        "cid": actual_post.cid
+                    }
+                    parent_ref = {
+                        "$type": "app.bsky.feed.post#main",
+                        "uri": uri,
+                        "cid": actual_post.cid
+                    }
                     reply_ref = models.AppBskyFeedPost.ReplyRef(
                         root=root_ref,
                         parent=parent_ref
