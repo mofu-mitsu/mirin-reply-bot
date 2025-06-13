@@ -148,50 +148,49 @@ except KeyError:
 try:
     _ = globals()["GENERAL_TAGS"]
 except KeyError:
-    logging.error("⚠️⚖️ GENERAL_TAGSが未定義")
-    logging.error("ERROR: ⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
-    globals()['GENERAL_TAGS'] = ["キャラ", "推し", "art", "drawing"]
+    logging.error("⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
+    globals()["GENERAL_TAGS"] = ["キャラ", "推し", "art", "drawing"]
 
-# テンプレート監査ログ
+# テンプレ監査ログ
 TEMPLATE_AUDIT_LOG = "template_audit_log.txt"
 
 def audit_templates_changes(old, new):
-    """テンプレート変更を監視・記録"""
+    """テンプレ変更を監視・記録"""
     try:
         if old != new:
             with open(TEMPLATE_AUDIT_LOG, "a", encoding="utf-8") as f:
                 f.write(json.dumps({
-                    "timestamped": datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                     "before": old,
                     "after": new
                 }, ensure_ascii=False) + "\n")
-            logging.warning("⚖️⚠️ WARNING: テンプレート変更検出")
+            logging.warning("⚖️⚠️ テンプレ変更検出")
     except Exception as e:
-        logging.error(f"⚠️⚖️ テンプレート監査エラー: {type(e).__name__}: {e}")
+        logging.error(f"⚠️⚖️ テンプレ監査エラー: {type(e).__name__}: {e}")
 
 def check_template_integrity(templates):
     """テンプレの改変チェック"""
     if not LOCK_TEMPLATES:
-        logging.warning("⚖️⚠️ LOCK_TEMPLATES無効力、改変リスク")
+        logging.warning("⚖️⚠️ LOCK_TEMPLATES無効、改変リスク")
         return False
-    for key in templates:
-        if key in ORIGINAL_TEMPLATES and templates.get(key) != ORIGINAL_T[key]:
-            logging.error(f"⚖️⚠️ ERROR: {key} 改変検出、復元推奨")
+    for key in ORIGINAL_TEMPLATES:
+        if templates.get(key) != ORIGINAL_TEMPLATES[key]:
+            logging.error(f"⚖️⚠️ {key} 改変検出、復元推奨")
             return False
     return True
 
 def auto_revert_templates(templates):
     """テンプレをオリジナルに復元"""
     if LOCK_TEMPLATES:
-        for key in ORIGINAL_T:
-            templates[key] = deepcopy(ORIGINAL_T[key])
-        logging.info("✅ SUCCESS: テンプレ復元完了")
+        for key in ORIGINAL_TEMPLATES:
+            templates[key] = deepcopy(ORIGINAL_TEMPLATES[key])
+        logging.info("✅ テンプレ復元完了")
         return templates
     return templates
 
 def is_fluffy_color(r, g, b):
-    """色がふわもこ系（白、ピンク、クリーム、パステルパープル、夜空紫）か判定"""
-    logging.debug(f"色判定: RGB=({r},{g},{}),b})")
+    """色がふわもこ系（白、ピンク、クリーム、パステルパープル、夜空紫）かを判定"""
+    logging.debug(f"色判定: RGB=({r}, {g}, {b})")
     if r > 230 and g > 230 and b > 230:  # 白系
         logging.debug("白系検出")
         return True
@@ -281,7 +280,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         text = "ふわふわな動物の画像だよ〜🌸"
 
     prompt = (
-        "あなたは癒し系のふわもこマスコットです。\n"
+        "あなたは癒し系のふwaもこマスコットです。\n"
         "投稿内容に対して、かわいくて心が温かくなるような、短い返信をしてください（最大40文字）。\n"
         "繰り返しや定型文にならないようにしてください。\n"
         "### 例:\n"
@@ -289,6 +288,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "- 今日もふわふわ癒されるね〜🌙✨\n"
         "- そんな表情、かわいすぎるよ〜🐾🌼\n"
         "- ちょこんって座ってるの愛しすぎ…🫧\n"
+        "- ふわっとした毛並み、尊い…🐾💖\n"
+        "- ぽこぽこ感がたまらんね！🌟🧸\n"
         f"### 投稿:\n{text.strip()[:60]}\n"
         "### ふわもこ返信:"
     )
@@ -300,8 +301,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=50,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.8,
-            top_k=50,
+            temperature=0.9,
+            top_k=60,
             top_p=0.95,
             no_repeat_ngram_size=2
         )
@@ -348,6 +349,10 @@ def check_skin_ratio(img_pil_obj):
         lower = np.array([5, 20, 70], dtype=np.uint8)
         upper = np.array([25, 180, 255], dtype=np.uint8)
         mask = cv2.inRange(hsv_img, lower, upper)
+        skin_colors = img_np[mask > 0]
+        if skin_colors.size > 0:
+            avg_color = np.mean(skin_colors, axis=0)
+            logging.debug(f"平均肌色: BGR={avg_color}")
         skin_area = np.sum(mask > 0)
         total_area = img_np.shape[0] * img_np.shape[1]
         skin_ratio = skin_area / total_area if total_area > 0 else 0.0
@@ -552,10 +557,27 @@ def normalize_uri(uri):
         logging.error(f"URI正規化エラー: {type(e).__name__}: {e}")
         return uri
 
+def validate_fuwamoko_file():
+    """fuwamoko_empathy_uris.txtの整合性チェック"""
+    if not os.path.exists(FUWAMOKO_FILE):
+        logging.info("ふわもこ履歴ファイルが存在しません。新規作成します。")
+        return True
+    try:
+        with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            for line in lines:
+                if not re.match(r'^at://[^|]+\|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+\d{2}:\d{2}$', line.strip()):
+                    logging.error(f"無効な履歴行: {line.strip()}")
+                    return False
+        return True
+    except Exception as e:
+        logging.error(f"履歴ファイル検証エラー: {type(e).__name__}: {e}")
+        return False
+
 def load_fuwamoko_uris():
     global fuwamoko_uris
     fuwamoko_uris.clear()
-    if os.path.exists(FUWAMOKO_FILE):
+    if validate_fuwamoko_file():
         try:
             with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -574,12 +596,15 @@ def load_fuwamoko_uris():
         except Exception as e:
             logging.error(f"履歴読み込みエラー: {type(e).__name__}: {e}")
     else:
-        logging.info("ふわもこ履歴ファイルが存在しません。新規作成します。")
+        logging.warning("履歴ファイル破損。初期化します。")
+        with open(FUWAMOKO_FILE, 'w', encoding='utf-8') as f:
+            f.write("")
+        fuwamoko_uris.clear()
 
 def save_fuwamoko_uri(uri, indexed_at):
     global fuwamoko_uris
     normalized_uri = normalize_uri(uri)
-    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=5.0)
+    lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=3.0)
     try:
         with lock:
             if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
@@ -591,7 +616,8 @@ def save_fuwamoko_uri(uri, indexed_at):
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             fuwamoko_uris[normalized_uri] = indexed_at
             logging.info(f"履歴保存: {normalized_uri}")
-            load_fuwamoko_uris()
+            if not validate_fuwamoko_file():
+                logging.error("履歴保存後、ファイル破損検出")
     except filelock.Timeout:
         logging.error(f"ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
     except Exception as e:
@@ -724,7 +750,7 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                 else:
                     print(f"🦝 スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
                     logging.warning(f"スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
-                    save_fuwamoko_uri(uri, indexed_at)  # 画像NGでも履歴保存
+                    save_fuwamoko_uri(uri, indexed_at)
                     return False
             except Exception as e:
                 print(f"✖️ 画像処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri}, cid={actual_post.cid})")
