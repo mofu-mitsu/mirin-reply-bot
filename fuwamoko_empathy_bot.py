@@ -224,7 +224,7 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
     ])
     NG_PHRASES = [
         "投稿:", "ユーザー", "返事:", "お返事ありがとうございます", "フォーラム", "会話",
-        "私は", "名前", "あなた", "○○", "・", "■", "!{5,}", r"\?{5,}", r"[!？]{5,}",
+        "名前", "あなた", "○○", "■", "!{5,}", r"\?{5,}", r"[!？]{5,}",
         "ふわもこ返信", "例文", "擬音語", "癒し系", "マスクット", "マスケット", "共感", "動物"
     ]
 
@@ -285,11 +285,13 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
         "- わぁ〜もふもふの子に会えたの？🧸💕\n"
         "- 今日もふわふわ癒されるね〜🌙✨\n"
         "- ふわもこで癒される〜♡💖\n"
-        f"### 投稿内容:\n{text.strip()[:30]}\n"
+        "- そんな表情、かわいすぎるよ〜🐾🌼\n"
+        "- ちょこんって座ってるの愛しすぎ…🫧\n"
+        f"### 投稿内容:\n{text.strip()[:60]}\n"
         "### ふわもこ返信:"
     )
 
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=140).to(model.device)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=200).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
@@ -304,7 +306,7 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^.*?###\s*ふわ*も*こ*返信:*\s*', '', reply, flags=re.DOTALL).strip()
         reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|癒し系|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
-        if len(reply) < 4 or len(reply) > 40 or any(re.search(bad, reply.lower()) for bad in NG_PHRASES):
+        if len(reply) < 3 or len(reply) > 40 or any(re.search(bad, reply.lower()) for bad in NG_PHRASES):
             logging.warning(f"SKIP理由: 長さ or NGフレーズ: {reply[:60]}")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
         logging.debug(f"AI生成: {reply}")
