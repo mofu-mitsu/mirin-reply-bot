@@ -168,7 +168,6 @@ def audit_templates_changes(old, new):
             logging.warning("⚖️⚠️ WARNING: テンプレート変更検出")
     except Exception as e:
         logging.error(f"⚠️⚖️ テンプレート監査エラー: {type(e).__name__}: {e}")
-}
 
 def check_template_integrity(templates):
     """テンプレの改変チェック"""
