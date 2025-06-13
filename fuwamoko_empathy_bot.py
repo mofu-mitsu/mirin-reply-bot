@@ -307,6 +307,9 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^.*?###\s*ふわ*も*こ*返信:*\s*', '', reply, flags=re.DOTALL).strip()
+        reply = re.sub(r'^ふわ[\wぁ-んァ-ンー]{0,4}(は|って)', '', reply).strip()
+        
+        # ▼ NGワード含んでるものをカット
         reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|癒し系|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
         if len(reply) < 3 or len(reply) > 40 or any(re.search(bad, reply.lower()) for bad in NG_PHRASES):
             logging.warning(f"SKIP理由: 長さ or NGフレーズ: {reply[:60]}")
