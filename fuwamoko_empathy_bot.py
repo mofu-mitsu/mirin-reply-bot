@@ -83,15 +83,25 @@ ORIGINAL_TEMPLATES = {
         "This might be food, not a fluffy cutie... 🍽️💭",
         "Adorable! But maybe not a fluffy buddy? 🐑💬"
     ],
-    "COSMETICS_TEMPLATES": {
+    "COSMETICS_TEMPLATES_JP": {
         "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
         "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂いがしてきそう〜🌼"],
         "ネイル": ["そのネイル、キラキラしてて最高💅✨", "ふわもこカラーで素敵〜💖"]
     },
-    "CHARACTER_TEMPLATES": {
+    "COSMETICS_TEMPLATES_EN": {
+        "lip": ["That lipstick is so cute~ 💄💖", "The color is dreamy, I’m in love 💋"],
+        "perfume": ["I bet that perfume smells fluffy and sweet 🌸", "I can almost smell it~ so lovely! 🌼"],
+        "nail": ["That nail art is sparkly and perfect 💅✨", "Fluffy colors make it so pretty 💖"]
+    },
+    "CHARACTER_TEMPLATES_JP": {
         "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
         "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
+    },
+    "CHARACTER_TEMPLATES_EN": {
+        "anime": ["Such a fluffy anime character! 💕", "They look like someone from a dream world~ 🌟"],
+        "oc": ["Your OC is precious... 🥺✨", "They have such a unique vibe, I love it! 💖"],
+        "fanart": ["Amazing interpretation! You're a genius 🙌", "I can feel your love for the original work ✨"]
     }
 }
 
@@ -121,7 +131,8 @@ except KeyError:
                  "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
                  "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"],
         "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
-                           "cosmetics", "makeup", "perfume", "nail"]
+                           "cosmetics", "makeup", "perfume", "nail", "lip", "lipstick", "lip gloss", "lip balm",
+                           "fragrance", "scent", "nail art", "manicure", "nails"]
     }
 
 try:
@@ -129,16 +140,16 @@ try:
 except KeyError:
     logging.error("⚠️⚖️ SAFE_CHARACTERが未定義。デフォルトを注入します。")
     globals()["SAFE_CHARACTER"] = {
-        "アニメ": ["アニメ", "漫画", "マンガ", "イラスト"],
-        "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作"],
-        "二次創作": ["二次創作", "FA"]
+        "アニメ": ["アニメ", "漫画", "マンガ", "イラスト", "anime", "illustration", "drawing", "anime art", "manga", "fanart"],
+        "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作", "oc", "original character", "my oc"],
+        "二次創作": ["二次創作", "FA", "fanart", "fan art", "fandom art"]
     }
 
 try:
     _ = globals()["GENERAL_TAGS"]
 except KeyError:
     logging.error("⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
-    globals()["GENERAL_TAGS"] = ["キャラ", "ファンアート", "推し"]
+    globals()["GENERAL_TAGS"] = ["キャラ", "ファンアート", "推し", "art", "drawing"]
 
 # テンプレ監査ログ
 TEMPLATE_AUDIT_LOG = "template_audit_log.txt"
@@ -178,7 +189,7 @@ def auto_revert_templates(templates):
     return templates
 
 def is_fluffy_color(r, g, b):
-    """色がふわもこ系（白、ピンク、クリーム、パステルパープル）かを判定"""
+    """色がふわもこ系（白、ピンク、クリーム、パステルパープル、夜空紫）かを判定"""
     logging.debug(f"色判定: RGB=({r}, {g}, {b})")
     if r > 230 and g > 230 and b > 230:  # 白系
         logging.debug("白系検出")
@@ -198,9 +209,12 @@ def is_fluffy_color(r, g, b):
     if 200 <= h <= 300 and s < 50 and v > 200:  # パステル系（紫～ピンク）
         logging.debug("パステル系検出")
         return True
+    if 200 <= h <= 250 and s < 100 and v > 150:  # 夜空パステル紫
+        logging.debug("夜空パステル紫検出")
+        return True
     return False
 
-def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
+def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
     NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [
         "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
         "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
@@ -224,6 +238,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     MOGUMOGU_TEMPLATES_JP = templates["MOGUMOGU_TEMPLATES_JP"]
     NORMAL_TEMPLATES_EN = templates["NORMAL_TEMPLATES_EN"]
     MOGUMOGU_TEMPLATES_EN = templates["MOGUMOGU_TEMPLATES_EN"]
+    COSMETICS_TEMPLATES_JP = templates["COSMETICS_TEMPLATES_JP"]
+    COSMETICS_TEMPLATES_EN = templates["COSMETICS_TEMPLATES_EN"]
+    CHARACTER_TEMPLATES_JP = templates["CHARACTER_TEMPLATES_JP"]
+    CHARACTER_TEMPLATES_EN = templates["CHARACTER_TEMPLATES_EN"]
 
     detected_tags = []
     for tag, words in globals()["EMOTION_TAGS"].items():
@@ -236,13 +254,23 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     elif "shonbori" in detected_tags:
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
     elif "safe_cosmetics" in detected_tags:
-        for cosmetic, templates in templates["COSMETICS_TEMPLATES"].items():
-            if cosmetic in text.lower():
-                return random.choice(templates)
+        if lang == "ja":
+            for cosmetic, templates in COSMETICS_TEMPLATES_JP.items():
+                if cosmetic in text.lower():
+                    return random.choice(templates)
+        else:
+            for cosmetic, templates in COSMETICS_TEMPLATES_EN.items():
+                if any(word in text.lower() for word in globals()["EMOTION_TAGS"]["safe_cosmetics"]):
+                    return random.choice(templates)
     elif any(tag in detected_tags for tag in globals()["SAFE_CHARACTER"]):
-        for char_type, templates in templates["CHARACTER_TEMPLATES"].items():
-            if any(word in text.lower() for word in globals()["SAFE_CHARACTER"][char_type]):
-                return random.choice(templates)
+        if lang == "ja":
+            for char_type, templates in CHARACTER_TEMPLATES_JP.items():
+                if any(word in text.lower() for word in globals()["SAFE_CHARACTER"][char_type]):
+                    return random.choice(templates)
+        else:
+            for char_type, templates in CHARACTER_TEMPLATES_EN.items():
+                if any(word in text.lower() for word in globals()["SAFE_CHARACTER"][char_type]):
+                    return random.choice(templates)
     elif any(word in text.lower() for word in globals()["GENERAL_TAGS"]):
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -310,8 +338,8 @@ def check_skin_ratio(img_pil_obj):
             return 0.0
 
         hsv_img = cv2.cvtColor(img_np, cv2.COLOR_BGR2HSV)
-        lower = np.array([0, 30, 50], dtype=np.uint8)
-        upper = np.array([20, 255, 255], dtype=np.uint8)
+        lower = np.array([5, 20, 70], dtype=np.uint8)  # 黄味寄り肌色
+        upper = np.array([25, 180, 255], dtype=np.uint8)
         mask = cv2.inRange(hsv_img, lower, upper)
         skin_area = np.sum(mask > 0)
         total_area = img_np.shape[0] * img_np.shape[1]
@@ -420,14 +448,14 @@ def process_image(image_data, text="", client=None, post=None):
         logging.debug(f"ふわもこ色カウント: {fluffy_count}")
 
         skin_ratio = check_skin_ratio(img)
-        if skin_ratio > 0.2:
+        if skin_ratio > 0.4:  # 閾値を0.2から0.4に緩和
             logging.warning(f"スキップ: 肌色比率高: {skin_ratio:.2%}")
             return False
 
         check_text = text.lower()
         try:
             if any(word in check_text for word in globals()["HIGH_RISK_WORDS"]):
-                if skin_ratio < 0.2 and fluffy_count >= 2:
+                if skin_ratio < 0.4 and fluffy_count >= 2:
                     logging.info("高リスクだが条件OK")
                     return True
                 else:
@@ -661,16 +689,14 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                         logging.debug(f"スキップ: 返信生成失敗: {post_id}")
                         save_fuwamoko_uri(uri, indexed_at)
                         return False
-                    root_ref = {
-                        "$type": "app.bsky.feed.post#main",
-                        "uri": uri,
-                        "cid": actual_post.cid
-                    }
-                    parent_ref = {
-                        "$type": "app.bsky.feed.post#main",
-                        "uri": uri,
-                        "cid": actual_post.cid
-                    }
+                    root_ref = models.ComAtprotoRepoStrongRef.Main(
+                        uri=uri,
+                        cid=actual_post.cid
+                    )
+                    parent_ref = models.ComAtprotoRepoStrongRef.Main(
+                        uri=uri,
+                        cid=actual_post.cid
+                    )
                     reply_ref = models.AppBskyFeedPost.ReplyRef(
                         root=root_ref,
                         parent=parent_ref
