@@ -111,7 +111,7 @@ except KeyError:
     logging.error("⚠️⚖️ EMOTION_TAGSが未定義。デフォルトを注入します。")
     globals()["EMOTION_TAGS"] = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
-                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ", "ぽこぽこ"],  # 新ワード
+                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ", "ぽこぽこ"],
         "neutral": ["かわいい", "cute", "adorable", "愛しい"],
         "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
         "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
@@ -179,17 +179,24 @@ def auto_revert_templates(templates):
 
 def is_fluffy_color(r, g, b):
     """色がふわもこ系（白、ピンク、クリーム、パステルパープル）かを判定"""
+    logging.debug(f"色判定: RGB=({r}, {g}, {b})")
     if r > 230 and g > 230 and b > 230:  # 白系
+        logging.debug("白系検出")
         return True
     if r > 220 and g < 100 and b > 180:  # ピンク系
+        logging.debug("ピンク系検出")
         return True
     if r > 240 and g > 230 and b > 180:  # クリーム色系
+        logging.debug("クリーム色系検出")
         return True
     if r > 220 and b > 220 and abs(r - b) < 30 and g > 200:  # パステルパープル
+        logging.debug("パステルパープル検出")
         return True
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
+    logging.debug(f"HSV=({h}, {s}, {v})")
     if 200 <= h <= 300 and s < 50 and v > 200:  # パステル系（紫～ピンク）
+        logging.debug("パステル系検出")
         return True
     return False
 
@@ -264,7 +271,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             temperature=0.7,
             top_k=40,
             top_p=0.9,
-            no_repeat_ngram_size=2  # 2-gram繰り返し防止
+            no_repeat_ngram_size=2
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         reply = re.sub(r'^.*?###\s*ふわ*も*こ*返信:*\s*', '', reply, flags=re.DOTALL).strip()
@@ -289,21 +296,15 @@ def extract_valid_cid(ref) -> str | None:
         logging.error(f"CID抽出エラー: {type(e).__name__}: {e}")
         return None
 
-def check_skin_ratio(image_data, client=None):
+def check_skin_ratio(img_pil_obj):
+    """肌色比率を計算（PIL Imageオブジェクトを直接受け取る）"""
     try:
-        if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref'):
-            logging.debug("画像データ構造エラー")
-            return 0.0
-        cid = extract_valid_cid(image_data.image.ref)
-        if not cid:
-            return 0.0
-        img = download_image_from_blob(cid, client, did=None)
-        if img is None:
-            logging.debug("画像ダウンロード不可")
+        if img_pil_obj is None:
+            logging.debug("画像データ無効 (PIL ImageオブジェクトがNone)")
             return 0.0
 
-        img_pil = img.convert("RGB")
-        img_np = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+        img_pil_obj = img_pil_obj.convert("RGB")
+        img_np = cv2.cvtColor(np.array(img_pil_obj), cv2.COLOR_RGB2BGR)
         if img_np is None or img_np.size == 0:
             logging.error("画像データ無効")
             return 0.0
@@ -356,7 +357,6 @@ def download_image_from_blob(cid, client, did=None):
                 return None
         except Exception as e:
             logging.error(f"Blob APIエラー: {type(e).__name__}: {e}")
-            # CDNにフォールバック
 
     did_safe = unquote(did) if did else None
     cdn_urls = [
@@ -406,18 +406,20 @@ def process_image(image_data, text="", client=None, post=None):
             logging.warning("スキップ: 画像取得失敗（ログは上記）")
             return False
 
-        img = img.resize((64, 64))
-        colors = img.getdata()
+        resized_img = img.resize((64, 64))
+        colors = resized_img.getdata()
         color_counts = Counter(colors)
         top_colors = color_counts.most_common(5)
+        logging.debug(f"トップ5カラー: {[(c[0][:3], c[1]) for c in top_colors]}")
 
         fluffy_count = 0
         for color in top_colors:
             r, g, b = color[0][:3]
             if is_fluffy_color(r, g, b):
                 fluffy_count += 1
+        logging.debug(f"ふわもこ色カウント: {fluffy_count}")
 
-        skin_ratio = check_skin_ratio(image_data, client=client)
+        skin_ratio = check_skin_ratio(img)
         if skin_ratio > 0.2:
             logging.warning(f"スキップ: 肌色比率高: {skin_ratio:.2%}")
             return False
@@ -659,7 +661,6 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                         logging.debug(f"スキップ: 返信生成失敗: {post_id}")
                         save_fuwamoko_uri(uri, indexed_at)
                         return False
-                    # StrongRefを自前で構築（atproto==0.0.61対応）
                     root_ref = {
                         "$type": "app.bsky.feed.post#main",
                         "uri": uri,
