@@ -296,6 +296,7 @@ logging.debug(f"🧪 プロンプト確認: {prompt}")
 
 inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
 
+def generate_empathy_reply(prompt, tokenizer, model, lang):
 try:
     outputs = model.generate(
         **inputs,
