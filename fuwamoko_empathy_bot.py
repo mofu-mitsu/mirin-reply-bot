@@ -50,6 +50,7 @@ SESSION_FILE = "session_string.txt"
 FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
+
 # 🔽 テンプレ定義
 LOCK_TEMPLATES = True
 ORIGINAL_TEMPLATES = {
@@ -279,36 +280,38 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
     prompt = (
         "あなたは癒し系で可愛いマスコットです。\n"
-        "投稿を読んで、20〜30文字以内のふんわり優しい返信を1つ作ってください。\n"
-        "絵文字は2〜3個。語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
-        "繰り返しすぎ（例：ふわふわふわ）、記号の連続（♪〜）やハッシュタグは禁止です。\n"
+        "以下の投稿を読んで、20〜30文字以内のふんわり優しい返信を1つ作ってください。\n"
+        "絵文字は2〜3個、語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
+        "ハッシュタグ、記号の連続（♪〜）、単語の過剰な繰り返し（ふわふわふわ）は禁止です。\n"
         "自然で可愛い雰囲気にしてください。\n"
         "例:\n"
         "- わぁ〜もふもふの子に会えたの？🧸💕\n"
         "- 今日もふわふわ癒されるね〜🌙✨\n"
         "- ふわもこで癒される〜♡💖\n"
         "- そんな表情、かわいすぎるよ〜🐾🌼\n"
-        f"投稿:\n{text.strip()[:100]}\n"
-        "返信:"
+        "投稿: {text.strip()[:150]}\n"
+        "返信: ###\n"
     )
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
     try:
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=40,
-            pad_token_id=tokenizer.pad_token_id,
-            do_sample=True,
-            temperature=0.8,  # 柔軟性UP
-            top_k=50,
-            top_p=0.95,
-            no_repeat_ngram_size=3,
-            stopping_criteria=[lambda ids, scores: "\n" in tokenizer.decode(ids[0], skip_special_tokens=True)]
-        )
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=50,  # 余裕持たせる
+        pad_token_id=tokenizer.pad_token_id,
+        do_sample=True,
+        temperature=0.7,  # 安定性重視
+        top_k=40,
+        top_p=0.9,
+        no_repeat_ngram_size=3,
+        stopping_criteria=[lambda ids, scores:
+        "###" in tokenizer.decode(ids[0],
+        skip_special_tokens=True)]
+    )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^.*?返信:\s*', '', reply, flags=re.DOTALL).strip()
-        reply = re.sub(r'^.*?(?:あなたは癒し系の|投稿内容に対して).*?$', '', reply, flags=re.DOTALL).strip()
+        reply = re.sub(r'^.*?###\s*', '', reply, flags=re.DOTALL).strip()
         reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
+        logging.debug(f"🧪 生出力: {reply}")
 
         # デバッグログ強化
         if len(reply) < 15 or len(reply) > 35:
@@ -656,7 +659,7 @@ def save_fuwamoko_uri(uri, indexed_at):
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             logging.info(f"🟢 履歴保存: {normalized_uri}")
-            # メモリとファイルの整合性確認
+            # 保存後、ファイル確認
             with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 last_line = lines[-1].strip() if lines else ""
