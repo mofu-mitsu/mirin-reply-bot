@@ -278,16 +278,16 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
     if not text.strip():
-        text = "もふもふのうさぎさんだよ〜🐰"  # ダミー文を具体化
+        text = "もふもふのうさぎさんだよ〜🐰"  # ダミー文
 
     prompt = (
-        "あなたは癒し系のふwaもこマスコットです。\n"
-        "投稿内容に、かわいくて温かい短い返信（20〜30文字）をしてください。\n"
-        "絵文字はこれを2〜3個: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
+        "あなたは癒し系のふわもこマスコットです。\n"
+        "投稿に20〜30文字の短い、かわいい返信をしてください。\n"
+        "絵文字はこれを2〜3個必ず: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
         "語尾は「〜ね！」「〜だよ！」で親しみやすく。\n"
-        "ハッシュタグ、記号連鎖（♪〜）、単語繰り返し（ふわふわふわ）は禁止。\n"
-        "例: ふわもこで癒される〜🐰✨\n"
-        f"投稿:\n{text.strip()[:100]}\n"
+        "ハッシュタグ、記号連鎖（♪〜）、単語の繰り返し（ふわふわふわ）は絶対禁止。\n"
+        "例: もふもふ癒されるね！🐰✨\n"
+        f"投稿: {text.strip()[:100]}\n"
         "ふわもこ返信:\n"
     )
     logging.debug(f"🧪 プロンプト確認: {prompt}")
@@ -296,14 +296,13 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=80,  # 増量
+            max_new_tokens=30,  # 短文強制
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.65,  # やや保守的
+            temperature=0.5,  # 超保守的
             top_k=50,
             top_p=0.9,
-            no_repeat_ngram_size=3
-            # stopping_criteria 削除
+            no_repeat_ngram_size=2  # 繰り返し厳禁
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         logging.debug(f"🧸 Raw AI出力: {raw_reply}")
@@ -316,25 +315,25 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         if len(reply) < 15 or len(reply) > 35:
-            logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
+            logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         for bad in NG_PHRASES:
             if re.search(bad, reply.lower()):
-                logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}")
+                logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
         if emoji_count < 2 or emoji_count > 3:
-            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}")
+            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        logging.info(f"🦊 AI生成成功: {reply}")
+        logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}, 絵文字: {emoji_count}")
         return reply
     except Exception as e:
         logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-
+        
 def extract_valid_cid(ref):
     try:
         cid_candidate = str(ref.link) if hasattr(ref, 'link') else str(ref)
