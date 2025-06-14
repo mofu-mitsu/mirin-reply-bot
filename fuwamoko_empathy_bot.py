@@ -210,6 +210,9 @@ def is_fluffy_color(r, g, b):
         return True
     return False
 
+# 🔽 ふわもこ絵文字リスト（チャッピー推奨）
+FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
+
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [
         "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
@@ -223,7 +226,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         r"(?:癒し系のふわもこマスコット|投稿内容に対して)",
         r"[■#]{2,}",
         r"!{5,}", r"\?{5,}", r"[!？]{5,}",
-        r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",  # 同一単語の3回以上繰り返しNG
+        r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",  # 3回以上繰り返しNG
         r"[♪~]{2,}",  # 記号連鎖
         r"#\S+#\S+",  # ハッシュタグ連鎖
     ]
@@ -280,9 +283,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     prompt = (
         "あなたは癒し系のふわもこマスコットです。\n"
         "投稿内容に対して、かわいくて心が温かくなるような短い返信（20〜30文字）を生成してください。\n"
-        "絵文字を2〜3個使い、語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
-        "ハッシュタグ、記号の連続（♪〜など）、単語の繰り返し（ふわふわふわなど）は禁止です。\n"
-        "自然な日本語の文章で、癒し系の雰囲気を保ってください。\n"
+        "絵文字は以下のものから2〜3個使い、語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
+        "使用可能な絵文字: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
+        "ハッシュタグ、記号の連続（♪〜など）、単語の繰り返し（ふわふわふわなど）は絶対に避けてください。\n"
+        "自然な日本語で、癒し系の雰囲気を保ってください。\n"
         "### 例:\n"
         "- わぁ〜もふもふの子に会えたの？🧸💕\n"
         "- 今日もふわふわ癒されるね〜🌙✨\n"
@@ -297,10 +301,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=40,
+            max_new_tokens=50,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,
+            temperature=0.6,  # 保守的に
             top_k=50,
             top_p=0.9,
             no_repeat_ngram_size=3,
@@ -325,7 +329,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                 logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        emoji_count = len(re.findall(r'[😺🐾🧸🌸🌟💕💖✨☁️🌷🐰]', reply))
+        emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
         if emoji_count < 2 or emoji_count > 3:
             logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
