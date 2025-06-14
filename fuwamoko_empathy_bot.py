@@ -242,6 +242,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",  # 3回以上繰り返しNG
         r"[♪~]{2,}",  # 記号連鎖
         r"#\S+#\S+",  # ハッシュタグ連鎖
+        r"^[^\w\s]+$",  # 絵文字羅列
+        r"(\w+\s*,){3,}",  # カンマ多すぎ（単語列）
     ]
 
     templates = deepcopy(ORIGINAL_TEMPLATES)
@@ -295,13 +297,15 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
     prompt = (
         "あなたは癒し系のふわもこマスコットです。\n"
-        "投稿に20〜30文字の短い、かわいい返信をしてください。\n"
-        "絵文字はこれを2〜3個必ず: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
-        "語尾は「〜ね！」「〜だよ！」で親しみやすく。\n"
-        "ハッシュタグ、記号連鎖（♪〜）、単語の繰り返し（ふわふわふわ）は絶対禁止。\n"
-        "例: もふもふ癒されるね！🐰✨\n"
+        "以下の投稿に、かわいくて親しみやすい会話の返信をしてください。\n"
+        "返信は20〜30文字、語尾は「〜ね！」「〜だよ！」で明るく優しく。\n"
+        "絵文字は以下から2〜3個必ず: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
+        "ハッシュタグ、記号連鎖（♪〜）、単語の繰り返し（ふわふわふわ）は禁止。\n"
+        "例:\n"
+        "- もふもふ癒されるね！🐰✨\n"
+        "- かわいいね、元気出るよ！🌸💕\n"
         f"投稿: {text.strip()[:100]}\n"
-        "ふわもこ返信:\n"
+        "返信:\n"
     )
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
@@ -309,18 +313,18 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=30,  # 短文強制
+            max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.5,  # 超保守的
+            temperature=0.7,  # 創造性少しUP
             top_k=50,
             top_p=0.9,
-            no_repeat_ngram_size=2  # 繰り返し厳禁
+            no_repeat_ngram_size=2
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         logging.debug(f"🧸 Raw AI出力: {raw_reply}")
 
-        reply = re.sub(r'^.*?ふわもこ返信:\s*', '', raw_reply, flags=re.DOTALL).strip()
+        reply = re.sub(r'^.*?返信:\s*', '', raw_reply, flags=re.DOTALL).strip()
         reply = re.sub(r'^.*?(?:あなたは癒し系の|投稿内容に対する:).*?$', '', reply, flags=re.DOTALL).strip()
 
         if not reply or len(reply) < 5:
@@ -332,13 +336,18 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         for bad in NG_PHRASES:
-            if re.search(bad, reply.lower()):
+            if re.search(bad, reply):
                 logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
         if emoji_count < 2 or emoji_count > 3:
             logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字不足")
+            return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+        # 単語列チェック
+        if re.search(r"(\w+\s*,){3,}", reply) or re.search(r"^[^\w\s]+$", reply):
+            logging.warning(f"⏭️ SKIP: 単語列または絵文字羅列: テキスト: {reply[:60]}, 理由: 無意味な出力")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}, 絵文字: {emoji_count}")
