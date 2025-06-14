@@ -188,8 +188,8 @@ def auto_revert_templates(templates):
 def is_fluffy_color(r, g, b):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
 
-    # 白系（少し暗めでも許容）
-    if r > 200 and g > 200 and b > 200:
+    # 白系（少し暗めでも許容、明るい色をふわもこ優先）
+    if r > 180 and g > 180 and b > 180:  # 閾値を少し下げてマルチーズ対応
         logging.debug("白系検出（優しめ）")
         return True
 
@@ -322,16 +322,14 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         text = "もふもふのうさぎさんだよ〜🐰"
 
     prompt = (
-        "あなたは癒し系のふわもこマスコットです。\n"
-        "次のユーザーの投稿に、20〜30文字の会話の返信文のみを生成してください。\n"
-        "語尾は「〜ね！」「〜だよ！」で明るく優しく、装飾記号（*.:゚など）は禁止。\n"
-        "絵文字は以下から2〜3個必須: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
-        "ハッシュタグ、記号連鎖、単語の繰り返し（ふわふわふわ）は禁止。\n"
-        "例:\n"
+        "# 会話例\n"
         "ユーザー: 今日寒すぎて布団から出られない〜\n"
         "返信: もふもふしてあったまろうね！♡✨\n"
+        "ユーザー: ねこが膝に乗ってきた〜\n"
+        "返信: あったかくて幸せだね〜🐾💕\n"
         "ユーザー: ぽこぽこ星空！🌟\n"
         "返信: ぽこぽこ感、たまらんね！🌟🧸\n"
+        "# 本文\n"
         f"ユーザー: {text.strip()[:100]}\n"
         "返信:\n"
     )
@@ -353,16 +351,16 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         logging.debug(f"🧸 Raw AI出力: {raw_reply}")
 
         reply = re.sub(r'^.*?返信:\s*', '', raw_reply, flags=re.DOTALL).strip()
-        reply = clean_output(reply)  # 装飾記号浄化
-        reply = apply_fuwamoko_tone(reply)  # ふわもこ口調変換
+        reply = clean_output(reply)
+        reply = apply_fuwamoko_tone(reply)
 
         if not reply or len(reply) < 5:
             logging.warning(f"⏭️ SKIP: 空または短すぎ: len={len(reply)}, テキスト: {reply[:60]}, 理由: 生成失敗")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        # 文章チェック
-        if not re.search(r'(です|ます|ね|よ|だ|る|た|に|を|が|は)', reply):
-            logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分")
+        # 文章チェック（文法＋擬音語のみ）
+        if not re.search(r'(です|ます|ね|よ|だ|る|た|に|を|が|は)', reply) or re.fullmatch(r'[ぁ-んー゛゜。、\s「」！？]+', reply):
+            logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分または擬音語のみ")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         # 長文カット
@@ -379,6 +377,11 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             if re.search(bad, reply):
                 logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+        # 文末の「。」と絵文字の調整
+        needs_gobi = emoji_count < 2
+        if reply.endswith("。") and needs_gobi:
+            reply = reply[:-1]
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
         if emoji_count < 2:
@@ -544,8 +547,19 @@ def process_image(image_data, text="", client=None, post=None):
         logging.debug(f"ふわもこ色カウント: {fluffy_count}")
 
         skin_ratio = check_skin_ratio(img)
+        logging.debug(f"肌色比率: {skin_ratio:.2%}, ふわもこカラー数: {fluffy_count}")  # デバッグ強化
+
         if skin_ratio > 0.4:
-            logging.warning(f"⏭️ スキップ: 肌色比率高: {skin_ratio:.2%}")
+            if fluffy_count >= 2:
+                logging.info("⚠️ 肌色多いが、ふわもこ成分強のため許容")
+            else:
+                logging.warning(f"⏭️ スキップ: 肌色比率高: {skin_ratio:.2%}")
+                return False
+        elif fluffy_count >= 2:
+            logging.info("🟢 ふわもこ色検出")
+            return True
+        else:
+            logging.warning("⏭️ スキップ: 色条件不足")
             return False
 
         check_text = text.lower()
@@ -561,12 +575,6 @@ def process_image(image_data, text="", client=None, post=None):
             logging.error("❌ HIGH_RISK_WORDS未定義。処理をスキップ")
             return False
 
-        if fluffy_count >= 2:
-            logging.info("🟢 ふわもこ色検出")
-            return True
-        else:
-            logging.warning("⏭️ スキップ: 色条件不足")
-            return False
     except Exception as e:
         logging.error(f"❌ 画像処理エラー: {type(e).__name__}: {e}")
         return False
