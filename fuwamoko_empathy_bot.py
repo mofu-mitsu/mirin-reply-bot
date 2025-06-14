@@ -636,7 +636,7 @@ def load_fuwamoko_uris():
                             fuwamoko_uris[normalized_uri] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                             logging.debug(f"🦊 履歴読み込み: {normalized_uri}")
                         except ValueError as e:
-                            logging.error(f"❌ 履歴行解析エラー: {repr(line.strip())}: {e}")
+                            logging.warning(f"⏭️ 破損行スキップ: {repr(line.strip())}: {e}")
                             continue
             logging.info(f"🟢 ふわもこURI読み込み: {len(fuwamoko_uris)}件")
     except Exception as e:
@@ -655,11 +655,11 @@ def save_fuwamoko_uri(uri, indexed_at):
                 return
             if isinstance(indexed_at, str):
                 indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
-            fuwamoko_uris[normalized_uri] = indexed_at
             with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
+            fuwamoko_uris[normalized_uri] = indexed_at  # メモリ更新
             logging.info(f"🟢 履歴保存: {normalized_uri}")
-            # 保存後、ファイル確認
+            # ファイル確認
             with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 last_line = lines[-1].strip() if lines else ""
@@ -667,6 +667,8 @@ def save_fuwamoko_uri(uri, indexed_at):
                     logging.debug(f"🦊 履歴ファイル確認: 最後の行={last_line}")
                 else:
                     logging.error(f"❌ 履歴保存失敗: 最後の行={last_line}")
+            # 再読み込み
+            load_fuwamoko_uris()  # ★追加
     except filelock.Timeout:
         logging.error(f"❌ ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
     except Exception as e:
