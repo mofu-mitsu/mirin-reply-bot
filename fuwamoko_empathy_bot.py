@@ -278,22 +278,17 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
     if not text.strip():
-        text = "ふわふわな動物の画像だよ〜🌸"
+        text = "もふもふのうさぎさんだよ〜🐰"  # ダミー文を具体化
 
     prompt = (
-        "あなたは癒し系のふわもこマスコットです。\n"
-        "投稿内容に対して、かわいくて心が温かくなるような短い返信（20〜30文字）を生成してください。\n"
-        "絵文字は以下のものから2〜3個使い、語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
-        "使用可能な絵文字: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
-        "ハッシュタグ、記号の連続（♪〜など）、単語の繰り返し（ふわふわふわなど）は絶対に避けてください。\n"
-        "自然な日本語で、癒し系の雰囲気を保ってください。\n"
-        "### 例:\n"
-        "- わぁ〜もふもふの子に会えたの？🧸💕\n"
-        "- 今日もふわふわ癒されるね〜🌙✨\n"
-        "- ふわもこで癒される〜♡💖\n"
-        "- そんな表情、かわいすぎるよ〜🐾🌼\n"
-        f"### 投稿:\n{text.strip()[:100]}\n"
-        "### ふわもこ返信:"
+        "あなたは癒し系のふwaもこマスコットです。\n"
+        "投稿内容に、かわいくて温かい短い返信（20〜30文字）をしてください。\n"
+        "絵文字はこれを2〜3個: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
+        "語尾は「〜ね！」「〜だよ！」で親しみやすく。\n"
+        "ハッシュタグ、記号連鎖（♪〜）、単語繰り返し（ふわふわふわ）は禁止。\n"
+        "例: ふわもこで癒される〜🐰✨\n"
+        f"投稿:\n{text.strip()[:100]}\n"
+        "ふわもこ返信:\n"
     )
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
@@ -301,14 +296,14 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=50,
+            max_new_tokens=80,  # 増量
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.6,  # 保守的に
+            temperature=0.65,  # やや保守的
             top_k=50,
             top_p=0.9,
-            no_repeat_ngram_size=3,
-            stopping_criteria=[lambda ids, scores: "ふわもこ返信:" in tokenizer.decode(ids[0], skip_special_tokens=True)]
+            no_repeat_ngram_size=3
+            # stopping_criteria 削除
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         logging.debug(f"🧸 Raw AI出力: {raw_reply}")
@@ -317,7 +312,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         reply = re.sub(r'^.*?(?:あなたは癒し系の|投稿内容に対する:).*?$', '', reply, flags=re.DOTALL).strip()
 
         if not reply or len(reply) < 5:
-            logging.warning(f"⏭️ SKIP: 空または短すぎ: len={len(reply)}, テキスト: {reply[:60]}")
+            logging.warning(f"⏭️ SKIP: 空または短すぎ: len={len(reply)}, テキスト: {reply[:60]}, 理由: 生成失敗")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         if len(reply) < 15 or len(reply) > 35:
