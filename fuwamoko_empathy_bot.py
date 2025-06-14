@@ -187,29 +187,42 @@ def auto_revert_templates(templates):
 
 def is_fluffy_color(r, g, b):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
-    if r > 230 and g > 230 and b > 230:  # 白系
-        logging.debug("白系検出")
+
+    # 白系（少し暗めでも許容）
+    if r > 200 and g > 200 and b > 200:
+        logging.debug("白系検出（優しめ）")
         return True
-    if r > 220 and g < 100 and b > 180:  # ピンク系
-        logging.debug("ピンク系検出")
+
+    # ピンク系（明るさ優先、saturation無視）
+    if r > 200 and g < 150 and b > 170:
+        logging.debug("ピンク系検出（ゆるめ）")
         return True
-    if r > 240 and g > 230 and b > 180:  # クリーム色系
-        logging.debug("クリーム色系検出")
+
+    # クリーム色（白黄系）
+    if r > 220 and g > 210 and b > 170:
+        logging.debug("クリーム色検出（広め）")
         return True
-    if r > 220 and b > 220 and abs(r - b) < 30 and g > 200:  # パステルパープル
-        logging.debug("パステルパープル検出")
+
+    # パステルパープル（rとbの差をゆるく）
+    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160:
+        logging.debug("パステルパープル検出（ゆるめ）")
         return True
+
+    # HSVベース（淡いパステル系含む）
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
-    if 200 <= h <= 300 and s < 50 and v > 200:  # パステル系（紫～ピンク）
-        logging.debug("パステル系検出")
-        return True
-    if 200 <= h <= 250 and s < 100 and v > 150:  # 夜空パステル紫
-        logging.debug("夜空パステル紫検出")
-        return True
-    return False
 
+    if 200 <= h <= 300 and s < 80 and v > 180:
+        logging.debug("パステル系紫～ピンク検出")
+        return True
+
+    if 190 <= h <= 260 and s < 100 and v > 140:
+        logging.debug("夜空パステル紫検出（広め）")
+        return True
+
+    return False
+    
 # 🔽 ふわもこ絵文字リスト（チャッピー推奨）
 FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
 
