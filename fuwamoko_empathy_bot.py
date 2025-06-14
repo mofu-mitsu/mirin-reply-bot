@@ -188,12 +188,12 @@ def auto_revert_templates(templates):
 def is_fluffy_color(r, g, b):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
 
-    # 白系（少し暗めでも許容、明るい色をふわもこ優先）
-    if r > 180 and g > 180 and b > 180:  # 閾値を少し下げてマルチーズ対応
+    # 白系（少し暗めでも許容）
+    if r > 180 and g > 180 and b > 180:
         logging.debug("白系検出（優しめ）")
         return True
 
-    # ピンク系（明るさ優先、saturation無視）
+    # ピンク系（明るさ優先）
     if r > 200 and g < 150 and b > 170:
         logging.debug("ピンク系検出（ゆるめ）")
         return True
@@ -208,7 +208,16 @@ def is_fluffy_color(r, g, b):
         logging.debug("パステルパープル検出（ゆるめ）")
         return True
 
-    # HSVベース（淡いパステル系含む）
+    # 白灰ピンク系（桃花ちゃん対応）
+    if r > 200 and g > 180 and b > 200:
+        logging.debug("ふわもこ白灰ピンク検出（桃花対応）")
+        return True
+
+    # 白灰系（ほんのりグレーもOK）
+    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30:
+        logging.debug("白灰ふわもこカラー（柔らか系）")
+        return True
+
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
@@ -222,6 +231,7 @@ def is_fluffy_color(r, g, b):
         return True
 
     return False
+
     
 # 🔽 ふわもこ絵文字リストと語尾
 FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
@@ -533,28 +543,36 @@ def process_image(image_data, text="", client=None, post=None):
             logging.warning("⏭️ スキップ: 画像取得失敗（ログは上記）")
             return False
 
+        # 明度フィルターを適用してトップカラー抽出
         resized_img = img.resize((64, 64))
-        colors = resized_img.getdata()
-        color_counts = Counter(colors)
+        hsv_img = cv2.cvtColor(np.array(resized_img), cv2.COLOR_RGB2HSV)
+        bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 160]
+        color_counts = Counter(bright_colors)
         top_colors = color_counts.most_common(5)
-        logging.debug(f"トップ5カラー: {[(c[0][:3], c[1]) for c in top_colors]}")
+        logging.debug(f"トップ5カラー（明度フィルター後）: {[(c[0], c[1]) for c in top_colors]}")
 
         fluffy_count = 0
-        for color in top_colors:
-            r, g, b = color[0][:3]
+        bright_color_count = 0
+        for color, _ in top_colors:
+            r, g, b = color
             if is_fluffy_color(r, g, b):
                 fluffy_count += 1
-        logging.debug(f"ふわもこ色カウント: {fluffy_count}")
+            if r > 180 and g > 180 and b > 180:  # 明るい色カウント
+                bright_color_count += 1
+        logging.debug(f"ふわもこ色カウント: {fluffy_count}, 明るい色数: {bright_color_count}")
 
         skin_ratio = check_skin_ratio(img)
-        logging.debug(f"肌色比率: {skin_ratio:.2%}, ふわもこカラー数: {fluffy_count}")  # デバッグ強化
+        logging.debug(f"肌色比率: {skin_ratio:.2%}, ふわもこカラー数: {fluffy_count}")
 
-        if skin_ratio > 0.4:
-            if fluffy_count >= 2:
-                logging.info("⚠️ 肌色多いが、ふわもこ成分強のため許容")
-            else:
-                logging.warning(f"⏭️ スキップ: 肌色比率高: {skin_ratio:.2%}")
-                return False
+        if skin_ratio > 0.4 and fluffy_count == 0:
+            logging.debug("肌色比率高く、ふわもこ色検出ゼロ→NG")
+            return False
+        elif skin_ratio > 0.4 and fluffy_count == 1 and bright_color_count < 3:
+            logging.debug("肌色比率高く、ふわもこ1色＋明色少なめ→NG（単一色疑い）")
+            return False
+        elif skin_ratio > 0.4 and fluffy_count >= 1 and bright_color_count >= 3:
+            logging.info("⚠️ 肌色多いが、ふわもこ1色＋明色多めで許容")
+            return True
         elif fluffy_count >= 2:
             logging.info("🟢 ふわもこ色検出")
             return True
