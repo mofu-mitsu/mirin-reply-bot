@@ -359,18 +359,27 @@ def check_skin_ratio(img_pil_obj):
             return 0.0
 
         hsv_img = cv2.cvtColor(img_np, cv2.COLOR_BGR2HSV)
-        lower = np.array([0, 20, 70], dtype=np.uint8)
-        upper = np.array([20, 255, 255], dtype=np.uint8)
+
+        # 肌色範囲をやや厳しめに設定（ふわもこピンク・白の誤検知防止）
+        lower = np.array([5, 40, 60], dtype=np.uint8)
+        upper = np.array([17, 170, 255], dtype=np.uint8)
+
         mask = cv2.inRange(hsv_img, lower, upper)
         skin_colors = img_np[mask > 0]
+
         if skin_colors.size > 0:
             avg_color = np.mean(skin_colors, axis=0)
             logging.debug(f"平均肌色: BGR={avg_color}")
+            if np.mean(avg_color) > 220:
+                logging.debug("→ 明るすぎるので肌色ではなく白とみなす")
+                return 0.0
+
         skin_area = np.sum(mask > 0)
         total_area = img_np.shape[0] * img_np.shape[1]
         skin_ratio = skin_area / total_area if total_area > 0 else 0.0
         logging.debug(f"肌色比率: {skin_ratio:.2%}")
         return skin_ratio
+
     except Exception as e:
         logging.error(f"❌ 肌色解析エラー: {type(e).__name__}: {e}")
         return 0.0
