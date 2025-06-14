@@ -50,3 +50,11 @@ jobs:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
         run: |
           python fuwamoko_empathy_bot.py
+
+      - name: Commit fuwamoko_uris
+        run: |
+          git config --global user.name 'Fuwamoko Bot'
+          git config --global user.email 'bot@example.com'
+          git add fuwamoko_empathy_uris.txt
+          git commit -m "Update fuwamoko_uris.txt [skip ci]" || echo "No changes"
+          git push
