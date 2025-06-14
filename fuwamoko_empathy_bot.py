@@ -50,7 +50,7 @@ SESSION_FILE = "session_string.txt"
 FUWAMOKO_FILE = "fuwamoko_empathy_uris.txt"
 FUWAMOKO_LOCK = "fuwamoko_empathy_uris.lock"
 
-# 🔽 テンプレ保護
+# 🔽 テンプレ定義
 LOCK_TEMPLATES = True
 ORIGINAL_TEMPLATES = {
     "NORMAL_TEMPLATES_JP": [
@@ -109,7 +109,7 @@ ORIGINAL_TEMPLATES = {
 try:
     _ = globals()["HIGH_RISK_WORDS"]
 except KeyError:
-    logging.error("⚠️⚖️ HIGH_RISK_WORDSが未定義。デフォルトを注入します。")
+    logging.error("⚠️ HIGH_RISK_WORDSが未定義。デフォルトを注入します。")
     globals()["HIGH_RISK_WORDS"] = [
         "もちもち", "ぷにぷに", "ぷよぷよ", "やわらかい", "むにゅむにゅ", "エロ", "えっち",
         "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"
@@ -118,7 +118,7 @@ except KeyError:
 try:
     _ = globals()["EMOTION_TAGS"]
 except KeyError:
-    logging.error("⚠️⚖️ EMOTION_TAGSが未定義。デフォルトを注入します。")
+    logging.error("⚠️ EMOTION_TAGSが未定義。デフォルトを注入します。")
     globals()["EMOTION_TAGS"] = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
                      "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ", "ぽこぽこ"],
@@ -138,7 +138,7 @@ except KeyError:
 try:
     _ = globals()["SAFE_CHARACTER"]
 except KeyError:
-    logging.error("⚠️⚖️ SAFE_CHARACTERが未定義。デフォルトを注入します。")
+    logging.error("⚠️ SAFE_CHARACTERが未定義。デフォルトを注入します。")
     globals()["SAFE_CHARACTER"] = {
         "アニメ": ["アニメ", "漫画", "マンガ", "イラスト", "anime", "illustration", "drawing", "anime art", "manga", "fanart"],
         "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作", "oc", "original character", "my oc"],
@@ -148,7 +148,7 @@ except KeyError:
 try:
     _ = globals()["GENERAL_TAGS"]
 except KeyError:
-    logging.error("⚠️⚖️ GENERAL_TAGSが未定義。デフォルトを注入します。")
+    logging.error("⚠️ GENERAL_TAGSが未定義。デフォルトを注入します。")
     globals()["GENERAL_TAGS"] = ["キャラ", "推し", "art", "drawing"]
 
 # テンプレ監査ログ
@@ -165,7 +165,7 @@ def audit_templates_changes(old, new):
                 }, ensure_ascii=False) + "\n")
             logging.warning("⚠️ テンプレ変更検出")
     except Exception as e:
-        logging.error(f"⚠️⚖️ テンプレ監査エラー: {type(e).__name__}: {e}")
+        logging.error(f"⚠️ テンプレ監査エラー: {type(e).__name__}: {e}")
 
 def check_template_integrity(templates):
     if not LOCK_TEMPLATES:
@@ -220,7 +220,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     ])
     NG_PHRASES = [
         r"(?:投稿|ユーザー|例文|擬音語|マスクット|マスケット|フォーラム|返事|会話|共感)",
-        r"(?:癒し系のふわもこマスコット|投稿内容に対して)",  # プロンプト混入防止
+        r"(?:癒し系のふわもこマスコット|投稿内容に対して)",
         r"[■#]{2,}",
         r"!{5,}", r"\?{5,}", r"[!？]{5,}",
         r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",  # 同一単語の3回以上繰り返しNG
@@ -278,18 +278,18 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         text = "ふわふわな動物の画像だよ〜🌸"
 
     prompt = (
-        "あなたは癒し系のふわもこマスコットです。\n"
-        "投稿内容に対して、かわいくて心が温かくなるような短い返信（20〜30文字）を生成してください。\n"
-        "絵文字を2〜3個使い、語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
-        "ハッシュタグ、記号の連続（♪〜など）、単語の過剰な繰り返し（ふわふわふわなど）は禁止です。\n"
-        "自然な日本語の文章で、癒し系の雰囲気を保ってください。\n"
-        "### 例:\n"
-        "- もふもふの子、超かわいいね！🧸💕\n"
-        "- ふわっとした毛並み、尊いよ！🐾✨\n"
-        "- ちょこんとした姿、癒されるね！🌸😺\n"
-        "- ぽこぽこ感、たまらんね！🌟🧸\n"
-        f"### 投稿:\n{text.strip()[:60]}\n"
-        "### ふわもこ返信:"
+        "あなたは癒し系で可愛いマスコットです。\n"
+        "投稿を読んで、20〜30文字以内のふんわり優しい返信を1つ作ってください。\n"
+        "絵文字は2〜3個。語尾は「〜ね！」「〜だよ！」など親しみやすくしてください。\n"
+        "繰り返しすぎ（例：ふわふわふわ）、記号の連続（♪〜）やハッシュタグは禁止です。\n"
+        "自然で可愛い雰囲気にしてください。\n"
+        "例:\n"
+        "- わぁ〜もふもふの子に会えたの？🧸💕\n"
+        "- 今日もふわふわ癒されるね〜🌙✨\n"
+        "- ふわもこで癒される〜♡💖\n"
+        "- そんな表情、かわいすぎるよ〜🐾🌼\n"
+        f"投稿:\n{text.strip()[:100]}\n"
+        "返信:"
     )
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
@@ -299,26 +299,33 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=40,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,
-            top_k=40,
-            top_p=0.9,
-            no_repeat_ngram_size=3
+            temperature=0.8,  # 柔軟性UP
+            top_k=50,
+            top_p=0.95,
+            no_repeat_ngram_size=3,
+            stopping_criteria=[lambda ids, scores: "\n" in tokenizer.decode(ids[0], skip_special_tokens=True)]
         )
         reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^.*?###\s*ふわ*も*こ*返信:*\s*', '', reply, flags=re.DOTALL).strip()
+        reply = re.sub(r'^.*?返信:\s*', '', reply, flags=re.DOTALL).strip()
         reply = re.sub(r'^.*?(?:あなたは癒し系の|投稿内容に対して).*?$', '', reply, flags=re.DOTALL).strip()
         reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
 
-        if len(reply) < 10 or len(reply) > 30 or any(re.search(bad, reply.lower()) for bad in NG_PHRASES):
-            logging.warning(f"⏭️ SKIP理由: 長さ or NGフレーズ: {reply[:60]}")
+        # デバッグログ強化
+        if len(reply) < 15 or len(reply) > 35:
+            logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+        
+        for bad in NG_PHRASES:
+            if re.search(bad, reply.lower()):
+                logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}")
+                return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         emoji_count = len(re.findall(r'[😺🐾🧸🌸🌟💕💖✨☁️🌷🐰]', reply))
         if emoji_count < 2 or emoji_count > 3:
-            logging.warning(f"⏭️ SKIP理由: 絵文字数不適切: {emoji_count}, テキスト: {reply[:60]}")
+            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        logging.debug(f"🦊 AI生成: {reply}")
+        logging.info(f"🦊 AI生成成功: {reply}")
         return reply
     except Exception as e:
         logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
@@ -624,6 +631,7 @@ def load_fuwamoko_uris():
                             uri, timestamp = line.strip().split("|", 1)
                             normalized_uri = normalize_uri(uri)
                             fuwamoko_uris[normalized_uri] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                            logging.debug(f"🦊 履歴読み込み: {normalized_uri}")
                         except ValueError as e:
                             logging.error(f"❌ 履歴行解析エラー: {repr(line.strip())}: {e}")
                             continue
@@ -638,15 +646,24 @@ def save_fuwamoko_uri(uri, indexed_at):
     lock = filelock.FileLock(FUWAMOKO_LOCK, timeout=5.0)
     try:
         with lock:
+            logging.debug(f"🦊 ロック取得: {FUWAMOKO_LOCK}")
             if normalized_uri in fuwamoko_uris and (datetime.now(timezone.utc) - fuwamoko_uris[normalized_uri]).total_seconds() < 24 * 3600:
                 logging.debug(f"⏭️ スキップ: 24時間以内: {normalized_uri}")
                 return
             if isinstance(indexed_at, str):
                 indexed_at = datetime.fromisoformat(indexed_at.replace("Z", "+00:00"))
             fuwamoko_uris[normalized_uri] = indexed_at
-            with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:  # 追記モード
+            with open(FUWAMOKO_FILE, 'a', encoding='utf-8') as f:
                 f.write(f"{normalized_uri}|{indexed_at.isoformat()}\n")
             logging.info(f"🟢 履歴保存: {normalized_uri}")
+            # メモリとファイルの整合性確認
+            with open(FUWAMOKO_FILE, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                last_line = lines[-1].strip() if lines else ""
+                if last_line.startswith(normalized_uri):
+                    logging.debug(f"🦊 履歴ファイル確認: 最後の行={last_line}")
+                else:
+                    logging.error(f"❌ 履歴保存失敗: 最後の行={last_line}")
     except filelock.Timeout:
         logging.error(f"❌ ファイルロックタイムアウト: {FUWAMOKO_LOCK}")
     except Exception as e:
@@ -748,14 +765,14 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                     if random.random() > 0.5:
                         print(f"⏭️ スキップ: ランダム（50%）: {post_id}")
                         logging.debug(f"スキップ: ランダム: {post_id}")
-                        save_fuwamoko_uri(uri, indexed_at)
+                        save_fuwamoko_uri(uri, indexed_at)  # ランダムスキップでも保存
                         return False
                     lang = detect_language(client, author)
                     reply_text = open_calm_reply("", text, lang=lang)
                     if not reply_text:
                         print(f"⏭️ スキップ: 返信生成失敗: {post_id}")
                         logging.debug(f"スキップ: 返信生成失敗: {post_id}")
-                        save_fuwamoko_uri(uri, indexed_at)
+                        save_fuwamoko_uri(uri, indexed_at)  # 生成失敗でも保存
                         return False
                     root_ref = models.ComAtprotoRepoStrongRef.Main(
                         uri=uri,
@@ -772,22 +789,24 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
                     print(f"🦊 返信送信: @{author}: {reply_text} ({post_id})")
                     logging.debug(f"返信送信: @{author}: {reply_text} ({post_id})")
                     client.send_post(text=reply_text, reply_to=reply_ref)
-                    save_fuwamoko_uri(uri, indexed_at)
+                    save_fuwamoko_uri(uri, indexed_at)  # 返信成功で保存
                     print(f"✅ SUCCESS: 返信成功: @{author} ({post_id})")
                     logging.info(f"🟢 返信成功: @{author} ({post_id})")
                     return True
                 else:
                     print(f"⏭️ スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
                     logging.warning(f"⏭️ スキップ: ふわもこ画像でない: {post_id} (画像 {i+1})")
-                    save_fuwamoko_uri(uri, indexed_at)
+                    save_fuwamoko_uri(uri, indexed_at)  # ふわもこでない場合も保存
                     return False
             except Exception as e:
                 print(f"❌ 画像処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri}, cid={actual_post.cid})")
                 logging.error(f"❌ 画像処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri}, cid={actual_post.cid})")
+                save_fuwamoko_uri(uri, indexed_at)  # エラーでも保存
                 return False
     except Exception as e:
         print(f"❌ 投稿処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri})")
         logging.error(f"❌ 投稿処理エラー: {type(e).__name__}: {e} ({post_id}, uri={uri})")
+        save_fuwamoko_uri(uri, indexed_at)  # エラーでも保存
         return False
 
 def run_once():
