@@ -223,18 +223,35 @@ def is_fluffy_color(r, g, b):
 
     return False
     
-# 🔽 ふわもこ絵文字リスト
+# 🔽 ふわもこ絵文字リストと語尾
 FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
-FWA_GOBI = ["♡", "♪", "✨", "🐰", "🐾", "🌸", "だよ〜♡", "だね〜♪"]
+FWA_GOBI = ["♡", "♪", "✨", "🌸", "🐾", "💖"]
+
+# ふわもこ口調変換辞書（長いフレーズから）
+fuwamoko_tone_map = [
+    ("ありがとうございます", "ありがと🐰💓"),
+    ("ありがとう", "ありがと♪"),
+    ("ですね", "だね〜✨"),
+    ("ですよ", "だよ♡"),
+    ("です", "だよ♡"),
+    ("ます", "するよ♪"),
+    ("ました", "したよ〜💖"),
+]
 
 def clean_output(text):
     """装飾記号や無意味な出力を浄化"""
-    text = re.sub(r'\n{2,}', '\n', text)  # 複数改行を単一に
-    text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)  # 装飾記号削除
-    text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)  # 句読点連鎖を単一に
+    text = re.sub(r'\n{2,}', '\n', text)
+    text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
+    text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
     return text.strip()
 
-def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
+def apply_fuwamoko_tone(reply):
+    """ふわもこ口調に変換"""
+    for formal, soft in fuwamoko_tone_map:
+        reply = reply.replace(formal, soft)
+    return reply
+
+def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
     NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [
         "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
         "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
@@ -249,7 +266,7 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
         r"!{5,}", r"\?{5,}", r"[!？]{5,}",
         r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",
         r"[♪~]{2,}",
-        r"#\S+#\S+",
+        r"(#\w+){3,}",  # ハッシュタグ3個以上
         r"^[^\w\s]+$",  # 絵文字羅列
         r"(\w+\s*,){3,}",  # 単語列
         r"[\*:\.]{2,}"  # 装飾記号連鎖
@@ -306,15 +323,16 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
 
     prompt = (
         "あなたは癒し系のふわもこマスコットです。\n"
-        "以下の投稿に、20〜30文字の会話の返信文を必ず作ってください。\n"
-        "語尾は「〜ね！」「〜だよ！」で明るく優しく、装飾記号（*.:゚など）は使わない。\n"
+        "次のユーザーの投稿に、20〜30文字の会話の返信文のみを生成してください。\n"
+        "語尾は「〜ね！」「〜だよ！」で明るく優しく、装飾記号（*.:゚など）は禁止。\n"
         "絵文字は以下から2〜3個必須: 🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙\n"
         "ハッシュタグ、記号連鎖、単語の繰り返し（ふわふわふわ）は禁止。\n"
         "例:\n"
-        "- もふもふ癒されるね！🐰✨\n"
-        "- かわいいね、元気出るよ！🌸💕\n"
-        "- ぽこぽこ感、たまらんね！🌟🧸\n"
-        f"投稿: {text.strip()[:100]}\n"
+        "ユーザー: 今日寒すぎて布団から出られない〜\n"
+        "返信: もふもふしてあったまろうね！♡✨\n"
+        "ユーザー: ぽこぽこ星空！🌟\n"
+        "返信: ぽこぽこ感、たまらんね！🌟🧸\n"
+        f"ユーザー: {text.strip()[:100]}\n"
         "返信:\n"
     )
     logging.debug(f"🧪 プロンプト確認: {prompt}")
@@ -326,7 +344,7 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
             max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.65,  # バランス調整
+            temperature=0.65,
             top_k=50,
             top_p=0.9,
             no_repeat_ngram_size=2
@@ -336,13 +354,14 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
 
         reply = re.sub(r'^.*?返信:\s*', '', raw_reply, flags=re.DOTALL).strip()
         reply = clean_output(reply)  # 装飾記号浄化
+        reply = apply_fuwamoko_tone(reply)  # ふわもこ口調変換
 
         if not reply or len(reply) < 5:
             logging.warning(f"⏭️ SKIP: 空または短すぎ: len={len(reply)}, テキスト: {reply[:60]}, 理由: 生成失敗")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        # 文章チェック（動詞や助詞が含まれるか）
-        if not re.search(r'[です|ます|ね|よ|だ|る|た|に|を|が|は]', reply):
+        # 文章チェック
+        if not re.search(r'(です|ます|ね|よ|だ|る|た|に|を|が|は)', reply):
             logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -363,7 +382,7 @@ def open_calm_reply(image_url, text="", context="ふwaもこ共感", lang="ja"):
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
         if emoji_count < 2:
-            reply += random.choice(FWA_GOBI)  # 語尾補完
+            reply += random.choice(FWA_GOBI)
             emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
             logging.debug(f"🧸 語尾補完: {reply}")
 
