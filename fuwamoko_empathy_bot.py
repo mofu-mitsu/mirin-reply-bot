@@ -318,27 +318,28 @@ try:
     if not reply or len(reply) < 5:
         logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-        
-        # デバッグログ強化
-        if len(reply) < 15 or len(reply) > 35:
-            logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
-            return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-        
-        for bad in NG_PHRASES:
-            if re.search(bad, reply.lower()):
-                logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}")
-                return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        emoji_count = len(re.findall(r'[😺🐾🧸🌸🌟💕💖✨☁️🌷🐰]', reply))
-        if emoji_count < 2 or emoji_count > 3:
-            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}")
-            return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-
-        logging.info(f"🦊 AI生成成功: {reply}")
-        return reply
-    except Exception as e:
-        logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
+    # デバッグログ強化
+    if len(reply) < 15 or len(reply) > 35:
+        logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+    for bad in NG_PHRASES:
+        if re.search(bad, reply.lower()):
+            logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}")
+            return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+    emoji_count = len(re.findall(r'[😺🐾🧸🌸🌟💕💖✨☁️🌷🐰]', reply))
+    if emoji_count < 2 or emoji_count > 3:
+        logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}")
+        return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+    logging.info(f"🦊 AI生成成功: {reply}")
+    return reply
+
+except Exception as e:
+    logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
+    return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
 def extract_valid_cid(ref):
     try:
