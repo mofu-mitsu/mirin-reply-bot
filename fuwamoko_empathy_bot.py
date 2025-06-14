@@ -292,27 +292,33 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         "投稿: {text.strip()[:150]}\n"
         "返信: ###\n"
     )
+logging.debug(f"🧪 プロンプト確認: {prompt}")
 
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
-    try:
+inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
+
+try:
     outputs = model.generate(
         **inputs,
-        max_new_tokens=50,  # 余裕持たせる
+        max_new_tokens=40,
         pad_token_id=tokenizer.pad_token_id,
         do_sample=True,
-        temperature=0.7,  # 安定性重視
-        top_k=40,
+        temperature=0.7,
+        top_k=50,
         top_p=0.9,
         no_repeat_ngram_size=3,
-        stopping_criteria=[lambda ids, scores:
-        "###" in tokenizer.decode(ids[0],
-        skip_special_tokens=True)]
+        stopping_criteria=[lambda ids, scores: "###" in tokenizer.decode(ids[0], skip_special_tokens=True)]
     )
-        reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        reply = re.sub(r'^.*?###\s*', '', reply, flags=re.DOTALL).strip()
-        reply = re.sub(r'[■\s]+|(ユーザー|投稿|例文|擬音語|マスクット|マスケット|.*?:.*?[:;]|\#.*|[。！？]*)$', '', reply).strip()
-        logging.debug(f"🧪 生出力: {reply}")
 
+    raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+    logging.debug(f"🧸 Raw AI出力: {raw_reply}")
+
+    reply = re.sub(r'^.*?###\s*', '', raw_reply, flags=re.DOTALL).strip()
+    reply = re.sub(r'^.*?(?:あなたは癒し系の|投稿内容に対する:).*?$', '', reply, flags=re.DOTALL).strip()
+
+    if not reply or len(reply) < 5:
+        logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
+        return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+        
         # デバッグログ強化
         if len(reply) < 15 or len(reply) > 35:
             logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}")
