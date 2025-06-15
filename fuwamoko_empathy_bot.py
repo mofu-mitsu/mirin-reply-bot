@@ -95,61 +95,6 @@ ORIGINAL_TEMPLATES = {
     },
     "CHARACTER_TEMPLATES_JP": {
         "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
-        "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
-        "fanart": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
-    },
-    "CHARACTER_TEMPLATES_EN": {
-        "anime": ["Such a fluffy anime character! 💕", "They look like someone from a dream world~ 🌟"],
-        "oc": ["Your OC is precious... 🥺✨", "They have such a unique vibe, I love it! 💖"],
-        "fanart": ["Amazing interpretation! You're a genius 🙌", "I can feel your love for the original work ✨"]
-    }
-}
-
-# 🔽 テンプレ保護（チャッピー憲章）
-LOCK_TEMPLATES = True
-ORIGINAL_TEMPLATES = {
-    "NORMAL_TEMPLATES_JP": [
-        "うんうん、かわいいね！癒されたよ🐾💖",
-        "よかったね〜！ふわふわだね🌸🧸",
-        "えへっ、モフモフで癒しMAX！💞",
-        "うわっ！可愛すぎるよ🐾🌷",
-        "ふわふわだね、元気出た！💫🧸"
-    ],
-    "SHONBORI_TEMPLATES_JP": [
-        "そっか…ぎゅーってしてあげるね🐾💕",
-        "元気出してね、ふわもこパワー送るよ！🧸✨",
-        "つらいときこそ、ふわふわに包まれて…🐰☁️",
-        "無理しないでね、そっと寄り添うよ🧸🌸"
-    ],
-    "MOGUMOGU_TEMPLATES_JP": [
-        "うーん…これは癒しより美味しそう？🐾💭",
-        "もぐもぐしてるけど…ふわもこじゃないかな？🤔",
-        "みりんてゃ、お腹空いてきちゃった…食レポ？🍽️💬"
-    ],
-    "NORMAL_TEMPLATES_EN": [
-        "Wow, so cute! Feels good~ 🐾💖",
-        "Nice! So fluffy~ 🌸🧸",
-        "Great! Healing vibes! 💞",
-        "Amazing! Thanks for the fluff! 🐾🌷"
-    ],
-    "MOGUMOGU_TEMPLATES_EN": [
-        "Hmmm... looks tasty, but maybe not so fluffy? 🐾💭",
-        "So yummy-looking... but is this a snack or a friend? 🤔🍽️",
-        "This might be food, not a fluffy cutie... 🍽️💭",
-        "Adorable! But maybe not a fluffy buddy? 🐑💬"
-    ],
-    "COSMETICS_TEMPLATES_JP": {
-        "リップ": ["このリップ可愛い〜💄💖", "色味が素敵すぎてうっとりしちゃう💋"],
-        "香水": ["この香り、絶対ふわもこだよね🌸", "いい匂い〜！💕"],
-        "ネイル": ["そのネイル、キラキラしてて最高💅✨", "ふわもこカラーで素敵〜💖"]
-    },
-    "COSMETICS_TEMPLATES_EN": {
-        "lip": ["That lipstick is so cute~ 💄💖", "The color is dreamy, I’m in love 💋"],
-        "perfume": ["I bet that perfume smells fluffy and sweet 🌸", "I can almost smell it~ so lovely! 🌼"],
-        "nail": ["That nail art is sparkly and perfect 💅✨", "Fluffy colors make it so pretty 💖"]
-    },
-    "CHARACTER_TEMPLATES_JP": {
-        "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
         "漫画": ["コマから飛び出してきたみたい！📖✨", "このタッチ、めちゃ好み…！💘"],
         "イラスト": ["線の優しさに癒される…🖋️🌼", "色づかいがほんと素敵💖"],
         "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
@@ -164,7 +109,7 @@ ORIGINAL_TEMPLATES = {
     }
 }
 
-# 🔽 グローバル辞書初期化
+# 🔽 グローバル辞書初期化（修正版）
 try:
     _ = globals()["EMOTION_TAGS"]
 except KeyError:
@@ -197,84 +142,135 @@ except KeyError:
     }
 
 try:
+    _ = globals()["GENERAL_TAGS"]
+except KeyError:
+    logging.error("⚠️ GENERAL_TAGS未定義。デフォルトを注入します。")
+    globals()["GENERAL_TAGS"] = ["キャラ", "推し"]
+
+try:
     _ = globals()["HIGH_RISK_WORDS"]
 except KeyError:
     logging.error("⚠️ HIGH_RISK_WORDS未定義。デフォルトを注入します。")
     globals()["HIGH_RISK_WORDS"] = ["もちもち", "ぷにぷに", "ぷよぷよ", "やわらかい", "むにゅむにゅ", "エロ", "えっち"]
 
-# 優先順位（カテゴリ衝突時の解決用）
+# 優先順位
 PRIORITY_ORDER = ["二次創作", "一次創作", "アニメ", "漫画", "イラスト"]
+
+# テンプレ（チャッピーの提案採用）
+CHARACTER_TEMPLATES_JP = {
+    "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
+    "漫画": ["コマから飛び出してきたみたい！📖✨", "このタッチ、めちゃ好み…！💘"],
+    "イラスト": ["線の優しさに癒される…🖋️🌼", "色づかいがほんと素敵💖"],
+    "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
+    "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
+}
+
+CHARACTER_TEMPLATES_EN = {
+    "anime": ["That anime character looks so fluffy! 💕", "Like someone straight out of a dream world~ 🌟"],
+    "manga": ["They look like they just stepped out of a manga panel! 📖✨", "I love the vibe of this linework! 💘"],
+    "illustration": ["The softness in these lines is so comforting~ 🖋️🌼", "The colors are simply beautiful! 💖"],
+    "oc": ["Your OC is precious… 🥺✨", "They have such a unique and magical world of their own 💖"],
+    "fanart": ["Your interpretation is genius! 🙌", "I can feel your love for the original work ✨"]
+}
 
 # テンプレ監査ログ
 TEMPLATE_AUDIT_LOG = "template_audit_log.txt"
 
-# 🔽 テンプレ監査と復元関数
 def audit_templates_changes(old, new):
-    """テンプレ変更をログに記録"""
-    if old != new:
-        with open(TEMPLATE_AUDIT_LOG, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.now().isoformat()} - 変更検出: {json.dumps({'before': old, 'after': new}, ensure_ascii=False)}\n")
-        logging.warning("⚠️ テンプレ変更検出")
+    try:
+        if old != new:
+            with open(TEMPLATE_AUDIT_LOG, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "timestamp": datetime.now().isoformat(),
+                    "before": old,
+                    "after": new
+                }, ensure_ascii=False, indent=2) + "\n")
+            logging.warning("⚠️ テンプレ変更検出")
+    except Exception as e:
+        logging.error(f"❌ テンプレ監査エラー: {type(e).__name__}: {e}")
 
 def check_template_integrity(templates):
-    """テンプレの整合性を確認"""
     if not LOCK_TEMPLATES:
         logging.warning("⚠️ LOCK_TEMPLATES無効、改変リスク")
         return False
-    for key, original in ORIGINAL_TEMPLATES.items():
-        if templates.get(key) != original:
-            logging.error(f"⚠️ {key} が改変されています。復元推奨")
+    for key in ORIGINAL_TEMPLATES:
+        if templates.get(key) != ORIGINAL_TEMPLATES[key]:
+            logging.error(f"⚠️ {key} 改変検出、復元推奨")
             return False
     return True
 
 def auto_revert_templates(templates):
-    """テンプレをオリジナルに戻す"""
     if LOCK_TEMPLATES:
-        for key, original in ORIGINAL_TEMPLATES.items():
-            templates[key] = deepcopy(original)
-        logging.info("✅ テンプレがオリジナルに戻されました")
+        for key in ORIGINAL_TEMPLATES:
+            templates[key] = deepcopy(ORIGINAL_TEMPLATES[key])
+        logging.info("✅ テンプレ復元完了")
+        return templates
     return templates
 
-# 🔽 色判定関数
 def is_fluffy_color(r, g, b):
-    """ふわもこ色かどうかを判定"""
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
-    if r > 180 and g > 180 and b > 180:  # 白系
+
+    # 白系（少し暗めでも許容）
+    if r > 180 and g > 180 and b > 180:
         logging.debug("白系検出（優しめ）")
         return True
-    if r > 200 and g < 150 and b > 170:  # ピンク系
+
+    # ピンク系（明るさ優先）
+    if r > 200 and g < 150 and b > 170:
         logging.debug("ピンク系検出（ゆるめ）")
         return True
-    if r > 220 and g > 210 and b > 170:  # クリーム色
+
+    # クリーム色（白黄系）
+    if r > 220 and g > 210 and b > 170:
         logging.debug("クリーム色検出（広め）")
         return True
-    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160:  # パステルパープル
+
+    # パステルパープル（rとbの差をゆるく）
+    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160:
         logging.debug("パステルパープル検出（ゆるめ）")
         return True
-    if r > 200 and g > 180 and b > 200:  # 白灰ピンク（桃花ちゃん対応）
+
+    # 白灰ピンク系（桃花ちゃん対応）
+    if r > 200 and g > 180 and b > 200:
         logging.debug("ふわもこ白灰ピンク検出（桃花対応）")
         return True
-    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30:  # 白灰系
+
+    # 白灰系（ほんのりグレーもOK）
+    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30:
         logging.debug("白灰ふわもこカラー（柔らか系）")
         return True
+
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
-    if 200 <= h <= 300 and s < 80 and v > 180:  # パステル紫～ピンク
+
+    if 200 <= h <= 300 and s < 80 and v > 180:
         logging.debug("パステル系紫～ピンク検出")
         return True
-    if 190 <= h <= 260 and s < 100 and v > 140:  # 夜空パステル紫
+
+    if 190 <= h <= 260 and s < 100 and v > 140:
         logging.debug("夜空パステル紫検出（広め）")
         return True
+
     return False
 
-# 🔽 ふわもこ絵文字と語尾
+# 🔽 ふわもこ絵文字リストと語尾
 FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
 FWA_GOBI = ["♡", "♪", "✨", "🌸", "🐾", "💖"]
 
-# 🔽 テキスト処理関数
+# ふわもこ口調変換辞書（長いフレーズから）
+fuwamoko_tone_map = [
+    ("ありがとうございます", "ありがと🐰💓"),
+    ("ありがとう", "ありがと♪"),
+    ("ですね", "だね〜✨"),
+    ("ですよ", "だよ♡"),
+    ("です", "だよ♡"),
+    ("ます", "するよ♪"),
+    ("ました", "したよ〜💖"),
+]
+
 def clean_output(text):
-    """不要な文字を削除してクリーンに"""
+    """装飾記号や無意味な出力を浄化"""
     text = re.sub(r'\n{2,}', '\n', text)
     text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
     text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
@@ -282,39 +278,11 @@ def clean_output(text):
 
 def apply_fuwamoko_tone(reply):
     """ふわもこ口調に変換"""
-    tone_map = [
-        ("ありがとうございます", "ありがと🐰💓"),
-        ("ありがとう", "ありがと♪"),
-        ("ですね", "だね〜✨"),
-        ("ですよ", "だよ♡"),
-        ("です", "だよ♡"),
-        ("ます", "するよ♪"),
-        ("ました", "したよ〜💖"),
-    ]
-    for formal, soft in tone_map:
+    for formal, soft in fuwamoko_tone_map:
         reply = reply.replace(formal, soft)
     return reply
 
-# 🔽 リプ生成関数
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    # テンプレをコピーして保護
-    templates = deepcopy(ORIGINAL_TEMPLATES)
-    if not check_template_integrity(templates):
-        templates = auto_revert_templates(templates)
-    audit_templates_changes(ORIGINAL_TEMPLATES, templates)
-
-    # テンプレ変数
-    NORMAL_TEMPLATES_JP = templates["NORMAL_TEMPLATES_JP"]
-    SHONBORI_TEMPLATES_JP = templates["SHONBORI_TEMPLATES_JP"]
-    MOGUMOGU_TEMPLATES_JP = templates["MOGUMOGU_TEMPLATES_JP"]
-    NORMAL_TEMPLATES_EN = templates["NORMAL_TEMPLATES_EN"]
-    MOGUMOGU_TEMPLATES_EN = templates["MOGUMOGU_TEMPLATES_EN"]
-    COSMETICS_TEMPLATES_JP = templates["COSMETICS_TEMPLATES_JP"]
-    COSMETICS_TEMPLATES_EN = templates["COSMETICS_TEMPLATES_EN"]
-    CHARACTER_TEMPLATES_JP = templates["CHARACTER_TEMPLATES_JP"]
-    CHARACTER_TEMPLATES_EN = templates["CHARACTER_TEMPLATES_EN"]
-
-    # NGワード（デフォルトはnsfw_ng）
     NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [
         "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
         "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
@@ -325,43 +293,65 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     NG_PHRASES = [
         r"(?:投稿|ユーザー|例文|擬音語|マスクット|マスケット|フォーラム|返事|会話|共感)",
         r"(?:癒し系のふわもこマスコット|投稿内容に対して)",
-        r"[■#]{2,}", r"!{5,}", r"\?{5,}", r"[!？]{5,}",
-        r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})", r"[♪~]{2,}",
-        r"(#\w+){3,}", r"^[^\w\s]+$", r"(\w+\s*,){3,}", r"[\*:\.]{2,}"
+        r"[■#]{2,}",
+        r"!{5,}", r"\?{5,}", r"[!？]{5,}",
+        r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",
+        r"[♪~]{2,}",
+        r"(#\w+){3,}",  # ハッシュタグ3個以上
+        r"^[^\w\s]+$",  # 絵文字羅列
+        r"(\w+\s*,){3,}",  # 単語列
+        r"[\*:\.]{2,}"  # 装飾記号連鎖
     ]
 
-    # タグ検出
-    detected_tags = []
-    check_text = text.lower()
-    for tag_category, tag_list in globals()["EMOTION_TAGS"].items():
-        if any(word in check_text for word in tag_list):
-            detected_tags.append(tag_category)
-    for char_category, char_tags in globals()["SAFE_CHARACTER"].items():
-        if any(tag in check_text for tag in char_tags):
-            detected_tags.append(char_category)
+    templates = deepcopy(ORIGINAL_TEMPLATES)
+    if not check_template_integrity(templates):
+        templates = auto_revert_templates(templates)
+    audit_templates_changes(ORIGINAL_TEMPLATES, templates)
 
-    # 特定条件でのテンプレ適用
-    if "food_ng" in detected_tags or any(word in check_text for word in globals()["EMOTION_TAGS"]["food_ng"]):
-        logging.debug(f"🍽️ 食事関連検出: {text[:40]}")
+    NORMAL_TEMPLATES_JP = templates["NORMAL_TEMPLATES_JP"]
+    SHONBORI_TEMPLATES_JP = templates["SHONBORI_TEMPLATES_JP"]
+    MOGUMOGU_TEMPLATES_JP = templates["MOGUMOGU_TEMPLATES_JP"]
+    NORMAL_TEMPLATES_EN = templates["NORMAL_TEMPLATES_EN"]
+    MOGUMOGU_TEMPLATES_EN = templates["MOGUMOGU_TEMPLATES_EN"]
+    COSMETICS_TEMPLATES_JP = templates["COSMETICS_TEMPLATES_JP"]
+    COSMETICS_TEMPLATES_EN = templates["COSMETICS_TEMPLATES_EN"]
+    CHARACTER_TEMPLATES_JP = templates["CHARACTER_TEMPLATES_JP"]
+    CHARACTER_TEMPLATES_EN = templates["CHARACTER_TEMPLATES_EN"]
+
+    detected_tags = []
+    for tag, words in globals()["EMOTION_TAGS"].items():
+        if any(word in text.lower() for word in words):
+            detected_tags.append(tag)
+
+    if "food" in detected_tags or any(word.lower() in text.lower() for word in NG_WORDS):
+        logging.debug(f"🍽️ NGワード/食事検出: {text[:40]}")
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
     elif "shonbori" in detected_tags:
         return random.choice(SHONBORI_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-    elif "safe_cosmetics" in detected_tags or any(cosmetic in check_text for cosmetic in COSMETICS_TEMPLATES_JP.keys()):
-        return random.choice(COSMETICS_TEMPLATES_JP.get(check_text.split().pop().lower(), NORMAL_TEMPLATES_JP)) if lang == "ja" else random.choice(COSMETICS_TEMPLATES_EN.get(check_text.split().pop().lower(), NORMAL_TEMPLATES_EN))
-    elif any(cat in detected_tags for cat in globals()["SAFE_CHARACTER"]):
-        # 優先順位でカテゴリ決定
-        matched_cat = next((cat for cat in PRIORITY_ORDER if cat in detected_tags), None)
-        if matched_cat:
-            templates = CHARACTER_TEMPLATES_JP if lang == "ja" else CHARACTER_TEMPLATES_EN
-            return random.choice(templates.get(matched_cat, NORMAL_TEMPLATES_JP if lang == "ja" else NORMAL_TEMPLATES_EN))
-    elif any(tag in check_text for tag in globals()["GENERAL_TAGS"]):
+    elif "safe_cosmetics" in detected_tags:
+        if lang == "ja":
+            for cosmetic, templates in COSMETICS_TEMPLATES_JP.items():
+                if cosmetic in text.lower():
+                    return random.choice(templates)
+        else:
+            for cosmetic, templates in COSMETICS_TEMPLATES_EN.items():
+                if any(word in text.lower() for word in globals()["EMOTION_TAGS"]["safe_cosmetics"]):
+                    return random.choice(templates)
+    elif any(tag in detected_tags for tag in globals()["SAFE_CHARACTER"]):
+        if lang == "ja":
+            for char_type, templates in CHARACTER_TEMPLATES_JP.items():
+                if any(word in text.lower() for word in globals()["SAFE_CHARACTER"][char_type]):
+                    return random.choice(templates)
+        else:
+            for char_type, templates in CHARACTER_TEMPLATES_EN.items():
+                if any(word in text.lower() for word in globals()["SAFE_CHARACTER"][char_type]):
+                    return random.choice(templates)
+    elif any(word in text.lower() for word in globals()["GENERAL_TAGS"]):
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-    # デフォルトテキスト
     if not text.strip():
         text = "もふもふのうさぎさんだよ〜🐰"
 
-    # プロンプト生成
     examples = [
         ("今日寒すぎて布団から出られない〜", "もふもふしてあったまろうね！♡✨"),
         ("毛布にくるまってる〜", "ぬくぬくで幸せ時間だね〜🌸💖"),
@@ -370,18 +360,27 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         ("ふわふわ雲がきれいだよ", "雲も癒しだね、ふわっとね！☁️🌸")
     ]
     chosen = random.sample(examples, 3)
-    prompt = "# 会話例\n" + "\n".join(f"ユーザー: {q}\n返信: {a}" for q, a in chosen) + f"\n# 本文\nユーザー: {text.strip()[:100]}\n返信:\n"
+
+    prompt = "# 会話例\n" + "\n".join(
+        [f"ユーザー: {q}\n返信: {a}" for q, a in chosen]
+    ) + f"\n# 本文\nユーザー: {text.strip()[:100]}\n返信:\n"
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
-    # AI生成
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
     try:
         outputs = model.generate(
-            **inputs, max_new_tokens=30, pad_token_id=tokenizer.pad_token_id,
-            do_sample=True, temperature=0.7, top_k=50, top_p=0.9, no_repeat_ngram_size=2
+            **inputs,
+            max_new_tokens=30,
+            pad_token_id=tokenizer.pad_token_id,
+            do_sample=True,
+            temperature=0.7,  # ランダム性を微増
+            top_k=50,
+            top_p=0.9,
+            no_repeat_ngram_size=2
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        logging.debug(f"🧸 Raw AI出力: {raw_reply}")
+        logging.debug(f"🧸 Raw AI出力（生データ）: {raw_reply}")
+        logging.debug(f"🧸 AI出力（クリーン後）: {clean_output(raw_reply)}")
 
         reply = re.sub(r'^.*?返信:\s*', '', raw_reply, flags=re.DOTALL).strip()
         reply = clean_output(reply)
@@ -390,20 +389,27 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         if not reply or len(reply) < 5:
             logging.warning(f"⏭️ SKIP: 空または短すぎ: len={len(reply)}, テキスト: {reply[:60]}, 理由: 生成失敗")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
         if not re.search(r'(です|ます|ね|よ|だ|る|た|に|を|が|は)', reply) or re.fullmatch(r'[ぁ-んー゛゜。、\s「」！？]+', reply):
-            logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分")
+            logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分または擬音語のみ")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-        if len(sentences := re.split(r'[。！？!?〜]+', reply)) >= 4:
+
+        sentences = re.split(r'[。！？!?〜]+', reply)
+        if len(sentences) >= 4:
             reply = "。".join(sentences[:3]) + "…"
             logging.debug(f"📏 長文カット: {reply}")
+
         if len(reply) < 15 or len(reply) > 35:
             logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-        if any(re.search(bad, reply) for bad in NG_PHRASES):
-            logging.warning(f"⏭️ SKIP: NGフレーズ検出: {next(bad for bad in NG_PHRASES if re.search(bad, reply))}, テキスト: {reply[:60]}")
-            return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        if reply.endswith("。") and len(re.findall(FUWAMOKO_EMOJIS, reply)) < 2:
+        for bad in NG_PHRASES:
+            if re.search(bad, reply):
+                logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
+                return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+        needs_gobi = len(re.findall(FUWAMOKO_EMOJIS, reply)) < 2
+        if reply.endswith("。") and needs_gobi:
             reply = reply[:-1]
         elif reply.endswith("…"):
             reply = reply[:-1] + random.choice(FWA_GOBI)
@@ -413,128 +419,184 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             reply += random.choice(FWA_GOBI)
             emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
             logging.debug(f"🧸 語尾補完: {reply}")
+
         if emoji_count < 2 or emoji_count > 3:
-            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}")
+            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         if reply in [ex[1] for ex in examples]:
             logging.warning("テンプレ返答と一致、リトライ中…")
-            return open_calm_reply(image_url, text, context, lang)
+            return open_calm_reply(image_url, text, context, lang)  # リトライ
 
         logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}, 絵文字: {emoji_count}")
         return reply
     except Exception as e:
         logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-
-# 🔽 補助関数
+        
 def extract_valid_cid(ref):
-    """CIDを有効に抽出"""
     try:
-        cid = str(ref.link) if hasattr(ref, 'link') else str(ref)
-        if re.match(r'^baf[a-z0-9]{40,60}$', cid):
-            return cid
-        logging.error(f"❌ 無効なCID: {cid}")
+        cid_candidate = str(ref.link) if hasattr(ref, 'link') else str(ref)
+        if re.match(r'^baf[a-z0-9]{40,60}$', cid_candidate):
+            return cid_candidate
+        logging.error(f"❌ 無効なCID: {cid_candidate}")
         return None
     except Exception as e:
         logging.error(f"❌ CID抽出エラー: {type(e).__name__}: {e}")
         return None
 
 def check_skin_ratio(img_pil_obj):
-    """肌色比率を計算"""
     try:
         if img_pil_obj is None:
-            logging.debug("画像データ無効")
+            logging.debug("画像データ無効 (PIL ImageオブジェクトがNone)")
             return 0.0
+
         img_pil_obj = img_pil_obj.convert("RGB")
         img_np = cv2.cvtColor(np.array(img_pil_obj), cv2.COLOR_RGB2BGR)
         if img_np is None or img_np.size == 0:
             logging.error("❌ 画像データ無効")
             return 0.0
+
         hsv_img = cv2.cvtColor(img_np, cv2.COLOR_BGR2HSV)
-        lower, upper = np.array([5, 40, 60]), np.array([17, 170, 255])
+
+        # 肌色範囲をやや厳しめに設定（ふわもこピンク・白の誤検知防止）
+        lower = np.array([5, 40, 60], dtype=np.uint8)
+        upper = np.array([17, 170, 255], dtype=np.uint8)
+
         mask = cv2.inRange(hsv_img, lower, upper)
+        skin_colors = img_np[mask > 0]
+
+        if skin_colors.size > 0:
+            avg_color = np.mean(skin_colors, axis=0)
+            logging.debug(f"平均肌色: BGR={avg_color}")
+            if np.mean(avg_color) > 220:
+                logging.debug("→ 明るすぎるので肌色ではなく白とみなす")
+                return 0.0
+
         skin_area = np.sum(mask > 0)
         total_area = img_np.shape[0] * img_np.shape[1]
         skin_ratio = skin_area / total_area if total_area > 0 else 0.0
         logging.debug(f"肌色比率: {skin_ratio:.2%}")
         return skin_ratio
+
     except Exception as e:
         logging.error(f"❌ 肌色解析エラー: {type(e).__name__}: {e}")
         return 0.0
 
 def is_mutual_follow(client, handle):
-    """相互フォローを判定"""
     try:
-        their_followers = {f.handle for f in client.get_followers(actor=handle, limit=100).followers}
-        my_followers = {f.handle for f in client.get_followers(actor=HANDLE, limit=100).followers}
+        their_followers = client.get_followers(actor=handle, limit=100).followers
+        their_followers = {f.handle for f in their_followers}
+        my_followers = client.get_followers(actor=HANDLE, limit=100).followers
+        my_followers = {f.handle for f in my_followers}
         return handle in my_followers and HANDLE in their_followers
     except Exception as e:
         logging.error(f"❌ 相互フォロー判定エラー: {type(e).__name__}: {e}")
         return False
 
 def download_image_from_blob(cid, client, did=None):
-    """画像をCIDからダウンロード"""
     if not cid or not re.match(r'^baf[a-z0-9]{40,60}$', cid):
         logging.error(f"❌ 無効なCID: {cid}")
         return None
+
     if client and did:
         try:
+            logging.debug(f"🦊 Blob APIリクエスト開始: CID={cid}, DID={did}")
             blob = client.com.atproto.repo.get_blob(cid=cid, did=did)
+            logging.debug(f"Blob API取得成功: size={len(blob.data)} bytes")
             img_data = BytesIO(blob.data)
-            img = Image.open(img_data)
-            img.load()
-            logging.info(f"🟢 Blob画像: {img.format}, サイズ={img.size}")
-            return img
+            try:
+                img = Image.open(img_data)
+                logging.info(f"🟢 Blob画像形式={img.format}, サイズ={img.size}")
+                img.load()
+                return img
+            except (UnidentifiedImageError, OSError) as e:
+                logging.error(f"❌ Blob画像解析失敗: {type(e).__name__}: {e}")
+                return None
+            except Exception as e:
+                logging.error(f"❌ Blob画像読み込みエラー: {type(e).__name__}: {e}")
+                return None
         except Exception as e:
-            logging.error(f"❌ Blob取得エラー: {type(e).__name__}: {e}")
-    cdn_urls = [f"https://cdn.bsky.app/img/feed_thumbnail/plain/{quote(did)}/{quote(cid)}@jpeg",
-                f"https://cdn.bsky.app/img/feed_fullsize/plain/{quote(did)}/{quote(cid)}@jpeg"] if did else []
-    for url in cdn_urls:
+            logging.error(f"❌ Blob APIエラー: {type(e).__name__}: {e}")
+
+    did_safe = unquote(did) if did else None
+    cdn_urls = [
+        f"https://cdn.bsky.app/img/feed_thumbnail/plain/{quote(did_safe)}/{quote(cid)}@jpeg" if did_safe else None,
+        f"https://cdn.bsky.app/img/feed_fullsize/plain/{quote(did_safe)}/{quote(cid)}@jpeg" if did_safe else None
+    ]
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    for url in [u for u in cdn_urls if u]:
         try:
-            response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10, stream=True)
+            logging.debug(f"🦊 CDNリクエスト開始: CID={cid}, url={url}")
+            response = requests.get(url, headers=headers, timeout=10, stream=True)
             response.raise_for_status()
+            logging.debug(f"CDN取得成功: サイズ={len(response.content)} bytes")
             img_data = BytesIO(response.content)
-            img = Image.open(img_data)
-            img.load()
-            logging.info(f"🟢 CDN画像: {img.format}, サイズ={img.size}")
-            return img
-        except Exception as e:
+            try:
+                img = Image.open(img_data)
+                logging.info(f"🟢 画像形式={img.format}, サイズ={img.size}")
+                img.load()
+                return img
+            except (UnidentifiedImageError, OSError) as e:
+                logging.error(f"❌ 画像解析失敗: {type(e).__name__}: {e}, url={url}")
+                return None
+            except Exception as e:
+                logging.error(f"❌ 画像取得エラー: {type(e).__name__}: {e}, url={url}")
+                return None
+        except requests.RequestException as e:
             logging.error(f"❌ CDN取得失敗: {type(e).__name__}: {e}, url={url}")
+            continue
+
     logging.error("❌ 画像取得失敗")
     return None
 
-# 🔽 画像処理関数
 def process_image(image_data, text="", client=None, post=None):
-    """画像を処理してふわもこ判定"""
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref'):
         logging.debug("画像データ構造異常")
         return False
+
     cid = extract_valid_cid(image_data.image.ref)
     if not cid:
         return False
+
     try:
         author_did = post.post.author.did if post and hasattr(post, 'post') else None
         img = download_image_from_blob(cid, client, did=author_did)
         if img is None:
-            logging.warning("⏭️ スキップ: 画像取得失敗")
+            logging.warning("⏭️ スキップ: 画像取得失敗（ログは上記）")
             return False
+
+        # 明度フィルターを適用してトップカラー抽出
         resized_img = img.resize((64, 64))
         hsv_img = cv2.cvtColor(np.array(resized_img), cv2.COLOR_RGB2HSV)
         bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 160]
         color_counts = Counter(bright_colors)
         top_colors = color_counts.most_common(5)
-        logging.debug(f"トップ5カラー: {[(c[0], c[1]) for c in top_colors]}")
-        fluffy_count = sum(1 for color, _ in top_colors if is_fluffy_color(*color))
-        bright_color_count = sum(1 for color, _ in top_colors if all(c > 180 for c in color))
+        logging.debug(f"トップ5カラー（明度フィルター後）: {[(c[0], c[1]) for c in top_colors]}")
+
+        fluffy_count = 0
+        bright_color_count = 0
+        for color, _ in top_colors:
+            r, g, b = color
+            if is_fluffy_color(r, g, b):
+                fluffy_count += 1
+            if r > 180 and g > 180 and b > 180:  # 明るい色カウント
+                bright_color_count += 1
         logging.debug(f"ふわもこ色カウント: {fluffy_count}, 明るい色数: {bright_color_count}")
+
         skin_ratio = check_skin_ratio(img)
-        logging.debug(f"肌色比率: {skin_ratio:.2%}")
-        if skin_ratio > 0.4 and fluffy_count == 0:
-            logging.debug("肌色比率高く、ふわもこ色なし→NG")
+        logging.debug(f"肌色比率: {skin_ratio:.2%}, ふわもこカラー数: {fluffy_count}")
+
+        # 肌色比率50%以上でスキップ
+        if skin_ratio >= 0.5:
+            logging.warning(f"⏭️ スキップ: 肌色比率 {skin_ratio:.2%} ≥ 50%")
+            return False
+        elif skin_ratio > 0.4 and fluffy_count == 0:
+            logging.debug("肌色比率高く、ふわもこ色検出ゼロ→NG")
             return False
         elif skin_ratio > 0.4 and fluffy_count == 1 and bright_color_count < 3:
-            logging.debug("肌色比率高く、ふわもこ1色＋明色少なめ→NG")
+            logging.debug("肌色比率高く、ふわもこ1色＋明色少なめ→NG（単一色疑い）")
             return False
         elif skin_ratio > 0.4 and fluffy_count >= 1 and bright_color_count >= 3:
             logging.info("🟡 肌色多いが、ふわもこ1色＋明色多めで許容")
@@ -545,20 +607,27 @@ def process_image(image_data, text="", client=None, post=None):
         else:
             logging.warning("⏭️ スキップ: 色条件不足")
             return False
-        check_text = text.lower()
-        if any(word in check_text for word in globals()["HIGH_RISK_WORDS"]):
-            if skin_ratio < 0.4 and fluffy_count >= 2:
-                logging.info("🟢 高リスクだが条件OK")
-                return True
-            logging.warning("⏭️ スキップ: 高リスク＋条件NG")
-            return False
-        if any(word in check_text for word in globals()["EMOTION_TAGS"]["nsfw_ng"]):
-            logging.warning("⏭️ スキップ: NSFW関連検出")
-            return False
-    except Exception as e:
-        logging.error(f"❌ 画像処理エラー: {type(e).__name__}: {e}")
-        return False
 
+        check_text = text.lower()
+        try:
+            if any(word in check_text for word in globals()["HIGH_RISK_WORDS"]):
+                if skin_ratio < 0.4 and fluffy_count >= 2:
+                    logging.info("🟢 高リスクだが条件OK")
+                    return True
+                else:
+                    logging.warning("⏭️ スキップ: 高リスク＋条件NG")
+                    return False
+            if any(word in check_text for word in globals()["EMOTION_TAGS"]["nsfw_ng"]):
+                logging.warning("⏭️ スキップ: NSFW関連検出")
+                return False
+        except KeyError as e:
+            logging.error(f"❌ グローバル辞書エラー: {type(e).__name__}: {e}")
+            return False
+
+    except Exception as e:
+        logging.error(f"❌ 画像処理エラー: {type(e).__name__}: {e} (cid={cid}, uri={getattr(post, 'uri', 'unknown')})")
+        return False
+        
 def is_quoted_repost(post):
     try:
         actual_post = post.post if hasattr(post, 'post') else post
