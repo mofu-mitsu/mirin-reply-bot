@@ -217,46 +217,46 @@ def is_fluffy_color(r, g, b, bright_colors):
         logging.debug("食品色（ハム/卵）検出、ふわもことみなさない")
         return False
 
-    # 白系（明るさv > 200、色分布のバラつきチェック）
-    if r > 180 and g > 180 and b > 180 and v > 200:
+    # 白系（明るさv > 150、色分布のバラつきチェック）
+    if r > 180 and g > 180 and b > 180 and v > 150:
         if bright_colors and len(bright_colors) > 0:
             colors = np.array(bright_colors)
-            if np.std(colors, axis=0).max() < 5:  # 単色判定を強化
+            if np.std(colors, axis=0).max() < 10:  # 単色判定を緩和
                 logging.debug("単色白系、ふわもことみなさない")
                 return False
         logging.debug("白系検出（明るさOK）")
         return True
 
     # ピンク系
-    if r > 200 and g < 150 and b > 170 and v > 200:
+    if r > 200 and g < 150 and b > 170 and v > 150:
         logging.debug("ピンク系検出（明るさOK）")
         return True
 
     # クリーム色
-    if r > 220 and g > 210 and b > 170 and v > 200:
+    if r > 220 and g > 210 and b > 170 and v > 150:
         logging.debug("クリーム色検出（広め）")
         return True
 
     # パステルパープル
-    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160 and v > 200:
+    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160 and v > 150:
         logging.debug("パステルパープル検出（明るさOK）")
         return True
 
     # 白灰ピンク系
-    if r > 200 and g > 180 and b > 200 and v > 200:
+    if r > 200 and g > 180 and b > 200 and v > 150:
         logging.debug("ふわもこ白灰ピンク検出（桃花対応）")
         return True
 
     # 白灰系
-    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30 and v > 200:
+    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30 and v > 150:
         logging.debug("白灰ふわもこカラー（柔らか系）")
         return True
 
-    if 200 <= h <= 300 and s < 80 and v > 200:
+    if 200 <= h <= 300 and s < 80 and v > 150:
         logging.debug("パステル系紫～ピンク検出（明るさOK）")
         return True
 
-    if 190 <= h <= 260 and s < 100 and v > 200:
+    if 190 <= h <= 260 and s < 100 and v > 150:
         logging.debug("夜空パステル紫検出（広め、明るさOK）")
         return True
 
@@ -334,12 +334,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     if len(text.strip()) <= 4 or re.fullmatch(r"[ぁ-んァ-ン一-龥]{1,4}", text.strip()):
         text = f"{text.strip()}って癒されるよね〜"
 
-    examples = [
-        ("寒い〜", "もふもふであったまろ〜♡"),
-        ("毛布にくるまってる〜", "ぬくぬく最高だね〜🌸"),
-        ("ねこが膝に来た", "あったかいし幸せだね〜🐾")
-    ]
-    prompt = "短く、改行なしでふわもこな返事をしてね。\n" + "\n".join([f"{q} → {a}" for q, a in examples]) + f"\n{text.strip()} →"
+    examples = [("寒い〜", "もふもふであったまろ〜♡")]
+    prompt = "短く、ふわもこな返事をしてね。\n" + "\n".join([f"{q} → {a}" for q, a in examples]) + f"\n{text.strip()} →"
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
@@ -349,10 +345,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=35,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.75,
+            temperature=0.6,  # 意味不明を減らす
             top_k=30,
             top_p=0.9,
-            no_repeat_ngram_size=2
+            no_repeat_ngram_size=3  # テンプレ混入防止
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         logging.debug(f"🧸 Raw AI出力（生データ）: {raw_reply}")
@@ -411,8 +407,8 @@ def check_skin_ratio(img_pil_obj):
             return 0.0
 
         hsv_img = cv2.cvtColor(img_np, cv2.COLOR_BGR2HSV)
-        lower = np.array([5, 40, 60], dtype=np.uint8)
-        upper = np.array([17, 170, 255], dtype=np.uint8)
+        lower = np.array([5, 50, 70], dtype=np.uint8)  # 肌色範囲調整
+        upper = np.array([20, 150, 240], dtype=np.uint8)
         mask = cv2.inRange(hsv_img, lower, upper)
         skin_colors = img_np[mask > 0]
 
@@ -448,7 +444,7 @@ def download_image_from_blob(cid, client, did=None):
 
     if client and did:
         try:
-            blob = client.com.atproto.repo.get_blob(cid=cid, did=did)
+            blob = client.get_blob(cid=cid, did=did)  # get_blobメソッド修正
             img_data = BytesIO(blob.data)
             img = Image.open(img_data)
             img.load()
@@ -498,7 +494,7 @@ def process_image(image_data, text="", client=None, post=None):
 
         resized_img = img.resize((64, 64))
         hsv_img = cv2.cvtColor(np.array(resized_img), cv2.COLOR_RGB2HSV)
-        bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 160]
+        bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 150]
         color_counts = Counter(bright_colors)
         top_colors = color_counts.most_common(5)
         logging.debug(f"トップ5カラー（明度フィルター後）: {[(c[0], c[1]) for c in top_colors]}")
@@ -507,7 +503,7 @@ def process_image(image_data, text="", client=None, post=None):
         bright_color_count = 0
         for color, _ in top_colors:
             r, g, b = color
-            if is_fluffy_color(r, g, b, bright_colors):  # bright_colorsを引数として渡す
+            if is_fluffy_color(r, g, b, bright_colors):
                 fluffy_count += 1
             if r > 180 and g > 180 and b > 180:
                 bright_color_count += 1
@@ -531,6 +527,9 @@ def process_image(image_data, text="", client=None, post=None):
         elif fluffy_count >= 2:
             logging.info("🟢 ふわもこ色検出")
             return True
+        elif (150 <= r <= 200 and 150 <= g <= 200 and 150 <= b <= 200) or (220 <= r <= 230 and 220 <= g <= 230 and 220 <= b <= 230):
+            logging.warning("⏭️ スキップ: 食品色（ハム/卵）検出")
+            return False
         else:
             logging.warning("⏭️ スキップ: 色条件不足")
             return False
