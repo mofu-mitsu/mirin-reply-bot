@@ -190,7 +190,7 @@ def auto_revert_templates(templates):
         return templates
     return templates
 
-def is_fluffy_color(r, g, b):
+def is_fluffy_color(r, g, b, bright_colors):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
@@ -198,10 +198,11 @@ def is_fluffy_color(r, g, b):
 
     # 白系（明るさv > 200、色分布のバラつきチェック）
     if r > 180 and g > 180 and b > 180 and v > 200:
-        colors = np.array(bright_colors)  # 事前にbright_colorsを定義
-        if colors.size > 0 and np.std(colors, axis=0).max() < 10:  # 単色判定
-            logging.debug("単色白系、ふわもことみなさない")
-            return False
+        if bright_colors and len(bright_colors) > 0:
+            colors = np.array(bright_colors)
+            if np.std(colors, axis=0).max() < 10:  # 単色判定
+                logging.debug("単色白系、ふわもことみなさない")
+                return False
         logging.debug("白系検出（明るさOK）")
         return True
 
@@ -329,7 +330,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.6,  # 少し安定化
+            temperature=0.6,
             top_k=40,
             top_p=0.85,
             no_repeat_ngram_size=3
@@ -366,12 +367,12 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
         needs_gobi = len(re.findall(FUWAMOKO_EMOJIS, reply)) < 2
         if reply.endswith("。") and needs_gobi:
-            reply = reply[:-1] + random.choice(FWA_GOBI)  # 不足時は補完
+            reply = reply[:-1] + random.choice(FWA_GOBI)
         elif reply.endswith("…"):
             reply = reply[:-1] + random.choice(FWA_GOBI)
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
-        if emoji_count > 4:  # 4個以上はスキップ
+        if emoji_count > 4:
             logging.warning(f"⏭️ SKIP: 絵文字数過剰: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字過多")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -505,7 +506,7 @@ def process_image(image_data, text="", client=None, post=None):
         bright_color_count = 0
         for color, _ in top_colors:
             r, g, b = color
-            if is_fluffy_color(r, g, b):
+            if is_fluffy_color(r, g, b, bright_colors):  # bright_colorsを引数として渡す
                 fluffy_count += 1
             if r > 180 and g > 180 and b > 180:
                 bright_color_count += 1
