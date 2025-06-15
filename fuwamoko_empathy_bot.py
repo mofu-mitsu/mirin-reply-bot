@@ -105,34 +105,24 @@ ORIGINAL_TEMPLATES = {
     }
 }
 
-# 🔽 グローバル辞書初期化
-try:
-    _ = globals()["HIGH_RISK_WORDS"]
-except KeyError:
-    logging.error("⚠️ HIGH_RISK_WORDS未定義。デフォルトを注入します。")
-    globals()["HIGH_RISK_WORDS"] = [
-        "もちもち", "ぷにぷに", "ぷよぷよ", "やわらかい", "むにゅむにゅ", "エロ", "えっち",
-        "nude", "nsfw", "naked", "lewd", "18+", "sex", "uncensored"
-    ]
-
+# 🔽 グローバル辞書初期化（修正版）
 try:
     _ = globals()["EMOTION_TAGS"]
 except KeyError:
     logging.error("⚠️ EMOTION_TAGS未定義。デフォルトを注入します。")
     globals()["EMOTION_TAGS"] = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
-                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ", "ぽこぽこ"],
+                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ"],
         "neutral": ["かわいい", "cute", "adorable", "愛しい"],
         "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
-        "food": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
-                 "おいしい", "うまい", "美味", "いただきます", "たべた", "食", "ごちそう", "ご馳走",
-                 "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "スープ",
-                 "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
-                 "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食",
-                 "酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒"],
-        "safe_cosmetics": ["コスメ", "メイク", "リップ", "香水", "スキンケア", "ネイル", "爪", "マニキュア",
-                          "cosmetics", "makeup", "perfume", "nail", "lip", "lipstick", "lip gloss", "lip balm",
-                          "fragrance", "scent", "nail art", "manicure", "nails"]
+        "food_ng": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
+                    "おいしい", "うまい", "美味", "いただきます", "たべた", "食", "ごちそう", "ご馳走",
+                    "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "スープ",
+                    "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
+                    "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食"],
+        "nsfw_ng": ["酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒",
+                    "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
+                    "肌フェチ", "soft skin", "fetish", "nude", "naked", "lewd", "18+", "sex", "uncensored"]
     }
 
 try:
@@ -331,18 +321,18 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     if not text.strip():
         text = "もふもふのうさぎさんだよ〜🐰"
 
-    prompt = (
-        "# 会話例\n"
-        "ユーザー: 今日寒すぎて布団から出られない〜\n"
-        "返信: もふもふしてあったまろうね！♡✨\n"
-        "ユーザー: ねこが膝に乗ってきた〜\n"
-        "返信: あったかくて幸せだね〜🐾💕\n"
-        "ユーザー: ぽこぽこ星空！🌟\n"
-        "返信: ぽこぽこ感、たまらんね！🌟🧸\n"
-        "# 本文\n"
-        f"ユーザー: {text.strip()[:100]}\n"
-        "返信:\n"
-    )
+    examples = [
+        ("今日寒すぎて布団から出られない〜", "もふもふしてあったまろうね！♡✨"),
+        ("毛布にくるまってる〜", "ぬくぬくで幸せ時間だね〜🌸💖"),
+        ("ねこが膝に乗ってきた〜", "あったかくて幸せだね〜🐾💕"),
+        ("お茶がほっとする…", "ほっこりタイムだね〜☕️🐰"),
+        ("ふわふわ雲がきれいだよ", "雲も癒しだね、ふわっとね！☁️🌸")
+    ]
+    chosen = random.sample(examples, 3)
+
+    prompt = "# 会話例\n" + "\n".join(
+        [f"ユーザー: {q}\n返信: {a}" for q, a in chosen]
+    ) + f"\n# 本文\nユーザー: {text.strip()[:100]}\n返信:\n"
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
@@ -352,7 +342,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.65,
+            temperature=0.7,  # ランダム性を微増
             top_k=50,
             top_p=0.9,
             no_repeat_ngram_size=2
@@ -368,12 +358,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             logging.warning(f"⏭️ SKIP: 空または短すぎ: len={len(reply)}, テキスト: {reply[:60]}, 理由: 生成失敗")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        # 文章チェック（文法＋擬音語のみ）
         if not re.search(r'(です|ます|ね|よ|だ|る|た|に|を|が|は)', reply) or re.fullmatch(r'[ぁ-んー゛゜。、\s「」！？]+', reply):
             logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分または擬音語のみ")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        # 長文カット
         sentences = re.split(r'[。！？!?〜]+', reply)
         if len(sentences) >= 4:
             reply = "。".join(sentences[:3]) + "…"
@@ -388,10 +376,11 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                 logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        # 文末の「。」と絵文字の調整
-        needs_gobi = emoji_count < 2
+        needs_gobi = len(re.findall(FUWAMOKO_EMOJIS, reply)) < 2
         if reply.endswith("。") and needs_gobi:
             reply = reply[:-1]
+        elif reply.endswith("…"):
+            reply = reply[:-1] + random.choice(FWA_GOBI)
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
         if emoji_count < 2:
@@ -403,12 +392,15 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
+        if reply in [ex[1] for ex in examples]:
+            logging.warning("テンプレ返答と一致、リトライ中…")
+            return open_calm_reply(image_url, text, context, lang)  # リトライ
+
         logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}, 絵文字: {emoji_count}")
         return reply
     except Exception as e:
         logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-        
         
 def extract_valid_cid(ref):
     try:
