@@ -130,16 +130,44 @@ try:
 except KeyError:
     logging.error("⚠️ SAFE_CHARACTER未定義。デフォルトを注入します。")
     globals()["SAFE_CHARACTER"] = {
-        "アニメ": ["アニメ", "漫画", "マンガ", "イラスト", "anime", "illustration", "drawing", "anime art", "manga", "fanart"],
-        "一次創作": ["一次創作", "オリキャラ", "オリジナル", "創作", "oc", "original character", "my oc"],
-        "fanart": ["ファンアート", "FA", "fanart", "fan art", "fandom art"]
+        "アニメ": ["アニメ", "anime", "anime art", "アニメキャラ"],
+        "漫画": ["漫画", "マンガ", "manga", "comic"],
+        "イラスト": ["イラスト", "illustration", "drawing", "スケッチ", "art", "落書き"],
+        "一次創作": ["一次創作", "オリキャラ", "オリジナル", "oc", "original character", "my oc"],
+        "二次創作": ["二次創作", "fanart", "fan art", "FA", "fandom art", "原作キャラ", "原作再現", "推しキャラ"]
     }
 
 try:
     _ = globals()["GENERAL_TAGS"]
 except KeyError:
     logging.error("⚠️ GENERAL_TAGS未定義。デフォルトを注入します。")
-    globals()["GENERAL_TAGS"] = ["キャラ", "推し", "art", "drawing"]
+    globals()["GENERAL_TAGS"] = ["キャラ", "推し"]
+
+try:
+    _ = globals()["HIGH_RISK_WORDS"]
+except KeyError:
+    logging.error("⚠️ HIGH_RISK_WORDS未定義。デフォルトを注入します。")
+    globals()["HIGH_RISK_WORDS"] = ["もちもち", "ぷにぷに", "ぷよぷよ", "やわらかい", "むにゅむにゅ", "エロ", "えっち"]
+
+# 優先順位
+PRIORITY_ORDER = ["二次創作", "一次創作", "アニメ", "漫画", "イラスト"]
+
+# テンプレ（チャッピーの提案採用）
+CHARACTER_TEMPLATES_JP = {
+    "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
+    "漫画": ["コマから飛び出してきたみたい！📖✨", "このタッチ、めちゃ好み…！💘"],
+    "イラスト": ["線の優しさに癒される…🖋️🌼", "色づかいがほんと素敵💖"],
+    "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
+    "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
+}
+
+CHARACTER_TEMPLATES_EN = {
+    "anime": ["That anime character looks so fluffy! 💕", "Like someone straight out of a dream world~ 🌟"],
+    "manga": ["They look like they just stepped out of a manga panel! 📖✨", "I love the vibe of this linework! 💘"],
+    "illustration": ["The softness in these lines is so comforting~ 🖋️🌼", "The colors are simply beautiful! 💖"],
+    "oc": ["Your OC is precious… 🥺✨", "They have such a unique and magical world of their own 💖"],
+    "fanart": ["Your interpretation is genius! 🙌", "I can feel your love for the original work ✨"]
+}
 
 # テンプレ監査ログ
 TEMPLATE_AUDIT_LOG = "template_audit_log.txt"
