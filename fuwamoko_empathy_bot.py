@@ -116,10 +116,10 @@ except KeyError:
     logging.error("⚠️ EMOTION_TAGS未定義。デフォルトを注入します。")
     globals()["EMOTION_TAGS"] = {
         "fuwamoko": ["ふわふわ", "もこもこ", "もふもふ", "fluffy", "fluff", "fluffball", "ふわもこ",
-                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ"],
+                     "ぽよぽよ", "やわやわ", "きゅるきゅる", "ぽふぽふ", "ふわもふ", "雲"],
         "neutral": ["かわいい", "cute", "adorable", "愛しい"],
         "shonbori": ["しょんぼり", "つらい", "かなしい", "さびしい", "疲れた", "へこんだ", "泣きそう"],
-        "food_ng": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん",
+        "food_ng": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん", "卵", "たまご", "おにぎり",
                     "おいしい", "うまい", "美味", "いただきます", "たべた", "食", "ごちそう", "ご馳走",
                     "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "スープ",
                     "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
@@ -192,91 +192,68 @@ def auto_revert_templates(templates):
 
 def is_fluffy_color(r, g, b):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
-
-    # 白系（明るさv > 200を追加）
-    if r > 180 and g > 180 and b > 180 and cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0][2] > 200:
-        logging.debug("白系検出（優しめ、明るさOK）")
-        return True
-
-    # ピンク系（明るさ優先）
-    if r > 200 and g < 150 and b > 170:
-        logging.debug("ピンク系検出（ゆるめ）")
-        return True
-
-    # クリーム色（白黄系）
-    if r > 220 and g > 210 and b > 170:
-        logging.debug("クリーム色検出（広め）")
-        return True
-
-    # パステルパープル（rとbの差をゆるく）
-    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160:
-        logging.debug("パステルパープル検出（ゆるめ）")
-        return True
-
-    # 白灰ピンク系（桃花ちゃん対応）
-    if r > 200 and g > 180 and b > 200:
-        logging.debug("ふわもこ白灰ピンク検出（桃花対応）")
-        return True
-
-    # 白灰系（ほんのりグレーもOK）
-    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30:
-        logging.debug("白灰ふわもこカラー（柔らか系）")
-        return True
-
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
 
-    if 200 <= h <= 300 and s < 80 and v > 200:  # 明るさを厳しく
+    # 白系（明るさv > 200、色分布のバラつきチェック）
+    if r > 180 and g > 180 and b > 180 and v > 200:
+        colors = np.array(bright_colors)  # 事前にbright_colorsを定義
+        if colors.size > 0 and np.std(colors, axis=0).max() < 10:  # 単色判定
+            logging.debug("単色白系、ふわもことみなさない")
+            return False
+        logging.debug("白系検出（明るさOK）")
+        return True
+
+    # ピンク系（明るさ優先）
+    if r > 200 and g < 150 and b > 170 and v > 200:
+        logging.debug("ピンク系検出（明るさOK）")
+        return True
+
+    # クリーム色（白黄系）
+    if r > 220 and g > 210 and b > 170 and v > 200:
+        logging.debug("クリーム色検出（広め）")
+        return True
+
+    # パステルパープル
+    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160 and v > 200:
+        logging.debug("パステルパープル検出（明るさOK）")
+        return True
+
+    # 白灰ピンク系
+    if r > 200 and g > 180 and b > 200 and v > 200:
+        logging.debug("ふわもこ白灰ピンク検出（桃花対応）")
+        return True
+
+    # 白灰系
+    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30 and v > 200:
+        logging.debug("白灰ふわもこカラー（柔らか系）")
+        return True
+
+    if 200 <= h <= 300 and s < 80 and v > 200:
         logging.debug("パステル系紫～ピンク検出（明るさOK）")
         return True
 
-    if 190 <= h <= 260 and s < 100 and v > 200:  # 夜空パステル紫、明るさ追加
+    if 190 <= h <= 260 and s < 100 and v > 200:
         logging.debug("夜空パステル紫検出（広め、明るさOK）")
         return True
 
     return False
 
-# 🔽 ふわもこ絵文字リストと語尾
-FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
-FWA_GOBI = ["♡", "♪", "✨", "🌸", "🐾", "💖"]
-
-# ふわもこ口調変換辞書
-fuwamoko_tone_map = [
-    ("ありがとうございます", "ありがと🐰💓"),
-    ("ありがとう", "ありがと♪"),
-    ("ですね", "だね〜✨"),
-    ("ですよ", "だよ♡"),
-    ("です", "だよ♡"),
-    ("ます", "するよ♪"),
-    ("ました", "したよ〜💖"),
-]
-
 def clean_output(text):
-    text = re.sub(r'\n{2,}', '\n', text)
-    text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
+    text = re.sub(r'\n{2,}', ' ', text)  # 改行を単一スペースに
+    text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)  # 絵文字連鎖除去
     text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
     return text.strip()
 
-def apply_fuwamoko_tone(reply):
-    for formal, soft in fuwamoko_tone_map:
-        reply = reply.replace(formal, soft)
-    return reply
-
 def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja"):
-    NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [
-        "加工肉", "ハム", "ソーセージ", "ベーコン", "サーモン", "たらこ", "明太子",
-        "パスタ", "ラーメン", "寿司", "うどん", "sushi", "sashimi", "salmon",
-        "meat", "bacon", "ham", "sausage", "pasta", "noodle",
-        "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
-        "肌フェチ", "soft skin", "fetish"
-    ])
+    NG_WORDS = globals()["EMOTION_TAGS"].get("nsfw_ng", [])
     NG_PHRASES = [
-        r"(?:投稿|ユーザー|例文|擬音語|マスクット|マスケット|フォーラム|返事|会話|共感)",
+        r"(?:投稿|ユーザー|例文|マスクット|マスケット|フォーラム|返事|会話|共感)",
         r"(?:癒し系のふわもこマスコット|投稿内容に対して)",
         r"[■#]{2,}",
         r"!{5,}", r"\?{5,}", r"[!？]{5,}",
-        r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",
+        r"(?:(ふわ|もこ|もち|ぽこ)\1{3,})",  # 3回以上繰り返しを弾く
         r"[♪~]{2,}",
         r"(#\w+){3,}",
         r"^[^\w\s]+$", r"(\w+\s*,){3,}", r"[\*:\.]{2,}"
@@ -352,16 +329,15 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,
-            top_k=50,
-            top_p=0.9,
-            no_repeat_ngram_size=2
+            temperature=0.6,  # 少し安定化
+            top_k=40,
+            top_p=0.85,
+            no_repeat_ngram_size=3
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         logging.debug(f"🧸 Raw AI出力（生データ）: {raw_reply}")
         logging.debug(f"🧸 AI出力（クリーン後）: {clean_output(raw_reply)}")
 
-        # テンプレ部分を厳密にカット
         reply = re.sub(r'^.*?# 本文\nユーザー:.*?\n返信:', '', raw_reply, flags=re.DOTALL).strip()
         reply = clean_output(reply)
         reply = apply_fuwamoko_tone(reply)
@@ -379,7 +355,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             reply = "。".join(sentences[:3]) + "…"
             logging.debug(f"📏 長文カット: {reply}")
 
-        if len(reply) < 10 or len(reply) > 50:  # 長さ範囲を調整
+        if len(reply) < 10 or len(reply) > 50:
             logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過/不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -390,18 +366,13 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
         needs_gobi = len(re.findall(FUWAMOKO_EMOJIS, reply)) < 2
         if reply.endswith("。") and needs_gobi:
-            reply = reply[:-1]
+            reply = reply[:-1] + random.choice(FWA_GOBI)  # 不足時は補完
         elif reply.endswith("…"):
             reply = reply[:-1] + random.choice(FWA_GOBI)
 
         emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
-        if emoji_count < 2:
-            reply += random.choice(FWA_GOBI)
-            emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
-            logging.debug(f"🧸 語尾補完: {reply}")
-
-        if emoji_count < 2 or emoji_count > 3:
-            logging.warning(f"⏭️ SKIP: 絵文字数不適切: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字不足")
+        if emoji_count > 4:  # 4個以上はスキップ
+            logging.warning(f"⏭️ SKIP: 絵文字数過剰: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字過多")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         if reply in [ex[1] for ex in examples]:
