@@ -190,7 +190,6 @@ def auto_revert_templates(templates):
         return templates
     return templates
 
-　# 🔽 ふわもこ口調変換辞書
 fuwamoko_tone_map = [
     ("ありがとうございます", "ありがと🐰💓"),
     ("ありがとう", "ありがと♪"),
