@@ -203,8 +203,7 @@ fuwamoko_tone_map = [
 def apply_fuwamoko_tone(reply):
     for formal, soft in fuwamoko_tone_map:
         reply = reply.replace(formal, soft)
-    # 句点と絵文字の異常修正
-    reply = re.sub(r'(🐰💓)\.', r'\1', reply)
+    reply = re.sub(r'(🐰💓)\.', r'\1', reply)  # 句点と絵文字の異常修正
     return reply
 
 def is_fluffy_color(r, g, b, bright_colors):
@@ -213,27 +212,28 @@ def is_fluffy_color(r, g, b, bright_colors):
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
 
-    # 食品色範囲（ハム/卵/おにぎり/豆腐、明るすぎる白除外）
+    # 食品色範囲（ハム/卵/おにぎり/豆腐、桃花除外）
     if ((150 <= r <= 200 and 150 <= g <= 200 and 150 <= b <= 200) or  # ハム/卵
         (220 <= r <= 250 and 220 <= g <= 250 and 210 <= b <= 230) or  # おにぎり
         (230 <= r <= 255 and 200 <= g <= 230 and 130 <= b <= 160) or  # 豆腐
-        (r == 255 and g == 255 and b == 255)):                       # 純白除外
+        (r == 255 and g == 255 and b == 255)):                       # 純白
         logging.debug("食品色（ハム/卵/おにぎり/豆腐/純白）検出、ふわもことみなさない")
         return False
 
-    # 白系（明るさv > 130、単色閾値厳格化）
+    # 白系（明るさv > 130、単色閾値10）
     if r > 180 and g > 180 and b > 180 and v > 130:
         if bright_colors and len(bright_colors) > 0:
             colors = np.array(bright_colors)
-            if np.std(colors, axis=0).max() < 10:  # 単色閾値を10に厳格化
+            if np.std(colors, axis=0).max() < 10:
                 logging.debug("単色白系、ふわもことみなさない")
                 return False
         logging.debug("白系検出（明るさOK、ピンク寄り含む）")
         return True
 
-    # ピンク系（桃花服含む）
-    if r > 200 and g < 170 and b > 170 and v > 130:
-        logging.debug("ピンク系検出（桃花服含む、明るさOK）")
+    # ピンク系（桃花優先）
+    if (r > 200 and g < 170 and b > 170 and v > 130) or \
+       (220 <= r <= 240 and 220 <= g <= 240 and 230 <= b <= 250):  # #232, 236, 247 対応
+        logging.debug("ピンク系検出（桃花優先、明るさOK）")
         return True
 
     # クリーム色
@@ -243,7 +243,7 @@ def is_fluffy_color(r, g, b, bright_colors):
 
     # パステルパープル
     if (r > 220 and g > 210 and b > 240 and abs(r - b) < 60 and v > 130) or \
-       (220 <= h <= 300 and s < 50 and v > 130):  # #F6DAF6, #E9DAF9, #EBDAFA, #E0D8FD対応
+       (220 <= h <= 300 and s < 50 and v > 130):  # #F6DAF6, #E9DAF9 対応
         logging.debug("パステルパープル検出（明るさOK）")
         return True
 
@@ -268,12 +268,14 @@ def is_fluffy_color(r, g, b, bright_colors):
     return False
 
 def clean_output(text):
-    text = re.sub(r'[\r\n]+', ' ', text)  # 改行を空白に
-    text = re.sub(r'\s{2,}', ' ', text)  # 連続スペース除去
-    text = re.sub(r'^(短く、ふわもこな返事をしてね。|.*→\s*|寒い〜\s*)', '', text)  # プロンプト前半カット
-    text = re.sub(r'^.*?((もふ|ふわ)[^。]*)$', r'\1', text, flags=re.DOTALL)  # 意味ある部分までカット
+    text = re.sub(r'[\r\n]+', ' ', text)
+    text = re.sub(r'\s{2,}', ' ', text)
+    text = re.sub(r'^(短く、ふわもこな返事をしてね。|.*→\s*|寒い〜\s*)', '', text)
+    text = re.sub(r'^.*?((もふ|ふわ)[^。]*)$', r'\1', text, flags=re.DOTALL)
+    text = re.sub(r'^もふもふであったまろ〜♡\s*', '', text)  # テンプレ削除
+    text = re.sub(r'^[^。！？\n]{1,10}って癒されるよね〜\s*', '', text)  # テンプレ削除
     text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
-    text = re.sub(r'([。、！？])\s*💖', r'\1💖', text)  # 句点と💖の重複修正
+    text = re.sub(r'([。、！？])\s*💖', r'\1💖', text)
     text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
     return text.strip()
 
@@ -289,6 +291,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         r"(#\w+){3,}",
         r"^[^\w\s]+$", r"(\w+\s*,){3,}", r"[\*:\.]{2,}"
     ]
+    SEASONAL_WORDS_BLACKLIST = ["寒い", "あったまろ", "凍える", "冷たい"]
 
     templates = deepcopy(ORIGINAL_TEMPLATES)
     if not check_template_integrity(templates):
@@ -337,18 +340,35 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
     # 単語入力対応
-    if len(text.strip()) <= 4 or re.fullmatch(r"[ぁ-んァ-ン一-龥]{1,4}", text.strip()):
-        text = f"{text.strip()}って癒されるよね〜"
+    if len(text.strip()) <= 4:
+        suffixes = [
+            "って癒されるよね〜",
+            "ってもふもふしてて好き〜",
+            "ってふわふわで落ち着く〜",
+            "って見てるだけで幸せ〜",
+        ]
+        text = f"{text.strip()}{random.choice(suffixes)}"
 
-    examples = [("寒い〜", "もふもふであったまろ〜♡")]
-    prompt = "短く、ふわもこな返事をしてね。\n" + "\n".join([f"{q} → {a}" for q, a in examples]) + f"\n{text.strip()} →"
+    examples = [
+        ("寒い〜", "もふもふであったまろ〜♡"),
+        ("毛布", "毛布にくるまってぬくぬくだね〜🐰"),
+        ("猫", "猫って癒しのかたまりだよね〜🐾"),
+        ("ぬいぐるみ", "ぎゅってしたくなるね〜💕"),
+        ("雲", "もくもくしてて可愛いよね〜☁️"),
+    ]
+    prompt = (
+        "ふわふわでやさしい返事を考えてね。\n"
+        "※『もふもふであったまろ〜♡』や『癒されるよね〜』は毎回入れなくていいよ。\n"
+        + "\n".join([f"{q} → {a}" for q, a in examples])
+        + f"\n{text.strip()} →"
+    )
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=35,
+            max_new_tokens=25,  # トークン制限を減らす
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
             temperature=0.6,
@@ -379,6 +399,13 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             if re.search(bad, reply):
                 logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
+
+        if any(word in reply for word in SEASONAL_WORDS_BLACKLIST):
+            logging.warning("⏭️ SKIP: 季節不一致: 寒さ表現あり")
+            return random.choice(NORMAL_TEMPLATES_JP)
+
+        if reply.count("もふもふ") > 1:
+            reply = reply.replace("もふもふ", "ふわふわ", 1)
 
         if not re.search(r"[🌸💕🐾☁️🐰✨♡]", reply):
             reply += " " + random.choice(["🐰", "🌸", "💕"])
