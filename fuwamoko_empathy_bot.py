@@ -189,6 +189,16 @@ def auto_revert_templates(templates):
         logging.info("✅ テンプレ復元完了")
         return templates
     return templates
+    
+fuwamoko_tone_map = [
+    ("ありがとうございます", "ありがと🐰💓"),
+    ("ありがとう", "ありがと♪"),
+    ("ですね", "だね〜✨"),
+    ("ですよ", "だよ♡"),
+    ("です", "だよ♡"),
+    ("ます", "するよ♪"),
+    ("ました", "したよ〜💖"),
+]
 
 def apply_fuwamoko_tone(reply):
     for formal, soft in fuwamoko_tone_map:
