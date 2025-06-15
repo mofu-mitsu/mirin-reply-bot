@@ -125,8 +125,9 @@ except KeyError:
                     "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト", "豆腐",
                     "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食"],
         "nsfw_ng": ["酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒",
-                    "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
-                    "肌フェチ", "soft skin", "fetish", "nude", "naked", "lewd", "18+", "sex", "uncensored"]
+                    "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出", "肌フェチ", "soft skin", "fetish",
+                    "nude", "naked", "lewd", "18+", "sex", "uncensored",
+                    "Hカップ", "吉原", "風俗", "ランジェリー", "おっぱい", "セクシー", "挑発", "谷間", "胸元", "乳", "水着姿", "エロ", "えちえち", "ぱい"]
     }
 
 try:
@@ -822,6 +823,37 @@ def has_image(post):
     except Exception as e:
         logging.error(f"❌ 画像チェックエラー: {type(e).__name__}: {e}")
         return False
+        
+def classify_text_emotion(text):
+    text = text.lower()
+    # NG系最優先
+    for tag in ["nsfw_ng", "food_ng"]:
+        for word in globals()["EMOTION_TAGS"].get(tag, []):
+            if word in text:
+                logging.debug(f"⚠️ '{word}' 検出 → NGタグ: {tag}")
+                return tag
+    # 中間ケース（髪やオーラ）
+    if any(word in text for word in ["髪の毛", "オーラ", "トーク", "補正"]):
+        logging.debug("△ 中間ケース検出: 髪/オーラ/トーク関連")
+        return "neutral_ambiguous"  # 中間判定
+    # 通常タグ
+    for tag, words in globals()["EMOTION_TAGS"].items():
+        if tag.endswith("_ng") or tag == "neutral_ambiguous":
+            continue
+        for word in words:
+            if word in text:
+                logging.debug(f"✅ '{word}' 検出 → タグ: {tag}")
+                return tag
+    return "neutral"
+    
+def is_suspicious_context(text, bio=""):
+    suspicious_keywords = [
+        "#グラビアアイドル", "#メンズエステ", "#名古屋メンエス", "#風俗", "#ご予約", "#DMで",
+        "マシュマロ", "性感", "体", "谷間", "胸元", "ランジェリー", "リピ様", "リンク"
+    ]
+    text = text.lower()
+    bio = bio.lower()
+    return any(kw in text or kw in bio for kw in suspicious_keywords)
 
 def process_post(post_data, client, fuwamoko_uris, reposted_uris):
     try:
@@ -829,6 +861,19 @@ def process_post(post_data, client, fuwamoko_uris, reposted_uris):
         uri = str(actual_post.uri)
         post_id = uri.split('/')[-1]
         text = getattr(actual_post.record, 'text', '') if hasattr(actual_post.record, 'text') else ''
+        bio = getattr(client.get_profile(actor=actual_post.author.handle), 'description', '')
+
+        # 文脈チェック
+        if is_suspicious_context(text, bio):
+            logging.info(f"⏭️ スキップ: 疑わしい文脈検出: {text[:40]} ({post_id})")
+            save_fuwamoko_uri(uri, actual_post.indexed_at)
+            return False
+
+        emotion = classify_text_emotion(text)
+        if emotion.endswith("_ng") or emotion == "neutral_ambiguous":
+            logging.info(f"⏭️ スキップ: NGまたは中間判定（{emotion}）: {text[:40]} ({post_id})")
+            save_fuwamoko_uri(uri, actual_post.indexed_at)
+            return False
 
         is_reply = hasattr(actual_post.record, 'reply') and actual_post.record.reply is not None
         if is_reply and not (is_priority_post(text) or is_reply_to_self(post_data)):
