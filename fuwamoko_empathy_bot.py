@@ -190,28 +190,38 @@ def auto_revert_templates(templates):
         return templates
     return templates
 
+def apply_fuwamoko_tone(reply):
+    for formal, soft in fuwamoko_tone_map:
+        reply = reply.replace(formal, soft)
+    return reply
+
 def is_fluffy_color(r, g, b, bright_colors):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
     hsv = cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0]
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
 
+    # 食品色（ハム、ソーセージ、卵）を除外
+    if (150 <= r <= 200 and 150 <= g <= 200 and 150 <= b <= 200) or (220 <= r <= 230 and 220 <= g <= 230 and 220 <= b <= 230):
+        logging.debug("食品色（ハム/卵）検出、ふわもことみなさない")
+        return False
+
     # 白系（明るさv > 200、色分布のバラつきチェック）
     if r > 180 and g > 180 and b > 180 and v > 200:
         if bright_colors and len(bright_colors) > 0:
             colors = np.array(bright_colors)
-            if np.std(colors, axis=0).max() < 10:  # 単色判定
+            if np.std(colors, axis=0).max() < 5:  # 単色判定を強化
                 logging.debug("単色白系、ふわもことみなさない")
                 return False
         logging.debug("白系検出（明るさOK）")
         return True
 
-    # ピンク系（明るさ優先）
+    # ピンク系
     if r > 200 and g < 150 and b > 170 and v > 200:
         logging.debug("ピンク系検出（明るさOK）")
         return True
 
-    # クリーム色（白黄系）
+    # クリーム色
     if r > 220 and g > 210 and b > 170 and v > 200:
         logging.debug("クリーム色検出（広め）")
         return True
@@ -242,8 +252,11 @@ def is_fluffy_color(r, g, b, bright_colors):
     return False
 
 def clean_output(text):
-    text = re.sub(r'\n{2,}', ' ', text)  # 改行を単一スペースに
-    text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)  # 絵文字連鎖除去
+    text = re.sub(r'[\r\n]+', ' ', text)  # 改行を空白に
+    text = re.sub(r'\s{2,}', ' ', text)  # 連続スペース除去
+    text = re.sub(r'^(ユーザー:|→)\s*', '', text)  # ユーザー: や → を除去
+    text = re.sub(r'^.*?→\s*', '', text)  # プロンプト形式の除去
+    text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
     text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
     return text.strip()
 
@@ -254,7 +267,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         r"(?:癒し系のふわもこマスコット|投稿内容に対して)",
         r"[■#]{2,}",
         r"!{5,}", r"\?{5,}", r"[!？]{5,}",
-        r"(?:(ふわ|もこ|もち|ぽこ)\1{3,})",  # 3回以上繰り返しを弾く
+        r"(?:(ふわ|もこ|もち|ぽこ)\1{3,})",
         r"[♪~]{2,}",
         r"(#\w+){3,}",
         r"^[^\w\s]+$", r"(\w+\s*,){3,}", r"[\*:\.]{2,}"
@@ -306,41 +319,35 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
     elif any(word in text.lower() for word in globals()["GENERAL_TAGS"]):
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-    if not text.strip():
-        text = "もふもふのうさぎさんだよ〜🐰"
+    # 単語入力対応
+    if len(text.strip()) <= 4 or re.fullmatch(r"[ぁ-んァ-ン一-龥]{1,4}", text.strip()):
+        text = f"{text.strip()}って癒されるよね〜"
 
     examples = [
-        ("今日寒すぎて布団から出られない〜", "もふもふしてあったまろうね！♡✨"),
-        ("毛布にくるまってる〜", "ぬくぬくで幸せ時間だね〜🌸💖"),
-        ("ねこが膝に乗ってきた〜", "あったかくて幸せだね〜🐾💕"),
-        ("お茶がほっとする…", "ほっこりタイムだね〜☕️🐰"),
-        ("ふわふわ雲がきれいだよ", "雲も癒しだね、ふわっとね！☁️🌸")
+        ("寒い〜", "もふもふであったまろ〜♡"),
+        ("毛布にくるまってる〜", "ぬくぬく最高だね〜🌸"),
+        ("ねこが膝に来た", "あったかいし幸せだね〜🐾")
     ]
-    chosen = random.sample(examples, 3)
-
-    prompt = "# 会話例\n" + "\n".join(
-        [f"ユーザー: {q}\n返信: {a}" for q, a in chosen]
-    ) + f"\n# 本文\nユーザー: {text.strip()[:100]}\n返信:\n"
+    prompt = "短く、改行なしでふわもこな返事をしてね。\n" + "\n".join([f"{q} → {a}" for q, a in examples]) + f"\n{text.strip()} →"
     logging.debug(f"🧪 プロンプト確認: {prompt}")
 
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=150).to(model.device)
     try:
         outputs = model.generate(
             **inputs,
-            max_new_tokens=30,
+            max_new_tokens=35,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.6,
-            top_k=40,
-            top_p=0.85,
-            no_repeat_ngram_size=3
+            temperature=0.75,
+            top_k=30,
+            top_p=0.9,
+            no_repeat_ngram_size=2
         )
         raw_reply = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
         logging.debug(f"🧸 Raw AI出力（生データ）: {raw_reply}")
         logging.debug(f"🧸 AI出力（クリーン後）: {clean_output(raw_reply)}")
 
-        reply = re.sub(r'^.*?# 本文\nユーザー:.*?\n返信:', '', raw_reply, flags=re.DOTALL).strip()
-        reply = clean_output(reply)
+        reply = clean_output(raw_reply)
         reply = apply_fuwamoko_tone(reply)
 
         if not reply or len(reply) < 5:
@@ -351,11 +358,6 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分または擬音語のみ")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        sentences = re.split(r'[。！？!?〜]+', reply)
-        if len(sentences) >= 4:
-            reply = "。".join(sentences[:3]) + "…"
-            logging.debug(f"📏 長文カット: {reply}")
-
         if len(reply) < 10 or len(reply) > 50:
             logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過/不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
@@ -365,22 +367,10 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
                 logging.warning(f"⏭️ SKIP: NGフレーズ検出: {bad}, テキスト: {reply[:60]}, 理由: NGフレーズ")
                 return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        needs_gobi = len(re.findall(FUWAMOKO_EMOJIS, reply)) < 2
-        if reply.endswith("。") and needs_gobi:
-            reply = reply[:-1] + random.choice(FWA_GOBI)
-        elif reply.endswith("…"):
-            reply = reply[:-1] + random.choice(FWA_GOBI)
+        if not re.search(r"[🌸💕🐾☁️🐰✨♡]", reply):
+            reply += " " + random.choice(["🐰", "🌸", "💕"])
 
-        emoji_count = len(re.findall(FUWAMOKO_EMOJIS, reply))
-        if emoji_count > 4:
-            logging.warning(f"⏭️ SKIP: 絵文字数過剰: count={emoji_count}, テキスト: {reply[:60]}, 理由: 絵文字過多")
-            return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-
-        if reply in [ex[1] for ex in examples]:
-            logging.warning("テンプレ返答と一致、リトライ中…")
-            return open_calm_reply(image_url, text, context, lang)
-
-        logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}, 絵文字: {emoji_count}")
+        logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}")
         return reply
     except Exception as e:
         logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
