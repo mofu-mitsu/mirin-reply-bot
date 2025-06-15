@@ -526,7 +526,7 @@ def process_image(image_data, text="", client=None, post=None):
             return False
 
 # モデルロード（グローバルスコープに追加）
-fuwamoko_model = torch.jit.load("fuwamoko_model.pt").to("cpu")  # GitHub Actions用にCPUで
+fuwamoko_model = torch.jit.load("fuwamoko_model.pt").to("cuda")  # GitHub Actions用にCPUで
 
 def process_image(image_data, text="", client=None, post=None):
     if not hasattr(image_data, 'image') or not hasattr(image_data.image, 'ref'):
@@ -550,7 +550,7 @@ def process_image(image_data, text="", client=None, post=None):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        img_tensor = transform(img).unsqueeze(0).to("cpu")
+        img_tensor = transform(img).unsqueeze(0).to("cuda")
 
         # 推論
         with torch.no_grad():
