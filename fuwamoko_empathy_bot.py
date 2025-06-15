@@ -122,7 +122,7 @@ except KeyError:
         "food_ng": ["肉", "ご飯", "飯", "ランチ", "ディナー", "モーニング", "ごはん", "卵", "たまご", "おにぎり",
                     "おいしい", "うまい", "美味", "いただきます", "たべた", "食", "ごちそう", "ご馳走",
                     "まぐろ", "刺身", "チーズ", "スナック", "yummy", "delicious", "スープ",
-                    "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト",
+                    "味噌汁", "カルボナーラ", "鍋", "麺", "パン", "トースト", "豆腐",
                     "カフェ", "ジュース", "ミルク", "ドリンク", "おやつ", "食事", "朝食", "夕食", "昼食"],
         "nsfw_ng": ["酒", "アルコール", "ビール", "ワイン", "酎ハイ", "カクテル", "ハイボール", "梅酒",
                     "soft core", "NSFW", "肌色", "下着", "肌見せ", "露出",
@@ -211,52 +211,53 @@ def is_fluffy_color(r, g, b, bright_colors):
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
 
-    # 食品色範囲（おにぎり中心、ハム/卵のみ）
+    # 食品色範囲（ハム/卵/おにぎり/豆腐）
     if ((150 <= r <= 200 and 150 <= g <= 200 and 150 <= b <= 200) or  # ハム/卵
-        (220 <= r <= 250 and 220 <= g <= 250 and 210 <= b <= 230)):   # おにぎり (#FDF6E6, #E3B98B, #E0D3C3)
-        logging.debug("食品色（ハム/卵/おにぎり）検出、ふわもことみなさない")
+        (220 <= r <= 250 and 220 <= g <= 250 and 210 <= b <= 230) or  # おにぎり
+        (230 <= r <= 255 and 200 <= g <= 230 and 130 <= b <= 160)):    # 豆腐 (#FBF1E0, #E4D3BC, #CBB287)
+        logging.debug("食品色（ハム/卵/おにぎり/豆腐）検出、ふわもことみなさない")
         return False
 
-    # 白系（明るさv > 140、色分布のバラつきチェック）
-    if r > 180 and g > 180 and b > 180 and v > 140:
+    # 白系（明るさv > 130、ピンク寄り強化）
+    if r > 180 and g > 180 and b > 180 and v > 130:
         if bright_colors and len(bright_colors) > 0:
             colors = np.array(bright_colors)
-            if np.std(colors, axis=0).max() < 15:  # 単色判定を緩和
+            if np.std(colors, axis=0).max() < 15:
                 logging.debug("単色白系、ふわもことみなさない")
                 return False
-        logging.debug("白系検出（明るさOK）")
+        logging.debug("白系検出（明るさOK、ピンク寄り含む）")
         return True
 
     # ピンク系（桃花服含む）
-    if r > 200 and g < 170 and b > 170 and v > 140:
+    if r > 200 and g < 170 and b > 170 and v > 130:
         logging.debug("ピンク系検出（桃花服含む、明るさOK）")
         return True
 
     # クリーム色
-    if r > 220 and g > 210 and b > 170 and v > 140:
+    if r > 220 and g > 210 and b > 170 and v > 130:
         logging.debug("クリーム色検出（広め）")
         return True
 
     # パステルパープル
-    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160 and v > 140:
+    if r > 190 and b > 190 and abs(r - b) < 60 and g > 160 and v > 130:
         logging.debug("パステルパープル検出（明るさOK）")
         return True
 
     # 白灰ピンク系
-    if r > 200 and g > 180 and b > 200 and v > 140:
+    if r > 200 and g > 180 and b > 200 and v > 130:
         logging.debug("ふわもこ白灰ピンク検出（桃花対応）")
         return True
 
     # 白灰系
-    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30 and v > 140:
+    if 200 <= r <= 255 and 200 <= g <= 240 and 200 <= b <= 255 and abs(r - g) < 30 and abs(r - b) < 30 and v > 130:
         logging.debug("白灰ふわもこカラー（柔らか系）")
         return True
 
-    if 200 <= h <= 300 and s < 80 and v > 140:
+    if 200 <= h <= 300 and s < 80 and v > 130:
         logging.debug("パステル系紫～ピンク検出（明るさOK）")
         return True
 
-    if 190 <= h <= 260 and s < 100 and v > 140:
+    if 190 <= h <= 260 and s < 100 and v > 130:
         logging.debug("夜空パステル紫検出（広め、明るさOK）")
         return True
 
@@ -266,8 +267,9 @@ def clean_output(text):
     text = re.sub(r'[\r\n]+', ' ', text)  # 改行を空白に
     text = re.sub(r'\s{2,}', ' ', text)  # 連続スペース除去
     text = re.sub(r'^(短く、ふわもこな返事をしてね。|.*→\s*)', '', text)  # プロンプト前半カット
-    text = re.sub(r'^.*?(?=もふ|ふわ)', '', text, flags=re.DOTALL)  # 意味ある部分までカット
+    text = re.sub(r'^.*?((もふ|ふわ)[^。]*)$', r'\1', text, flags=re.DOTALL)  # 意味ある部分までカット
     text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
+    text = re.sub(r'([。、！？])\s*💖', r'\1💖', text)  # 句点と💖の重複修正
     text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
     return text.strip()
 
@@ -365,7 +367,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             logging.warning(f"⏭️ SKIP: 文章不成立: テキスト: {reply[:60]}, 理由: 文法不十分または擬音語のみ")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
-        if len(reply) < 10 or len(reply) > 60:
+        if len(reply) < 10 or len(reply) > 70:  # 長さ上限を70に緩和
             logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過/不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
@@ -494,7 +496,7 @@ def process_image(image_data, text="", client=None, post=None):
 
         resized_img = img.resize((64, 64))
         hsv_img = cv2.cvtColor(np.array(resized_img), cv2.COLOR_RGB2HSV)
-        bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 140]
+        bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 130]
         color_counts = Counter(bright_colors)
         top_colors = color_counts.most_common(5)
         logging.debug(f"トップ5カラー（明度フィルター後）: {[(c[0], c[1]) for c in top_colors]}")
@@ -509,7 +511,8 @@ def process_image(image_data, text="", client=None, post=None):
             if r > 180 and g > 180 and b > 180:
                 bright_color_count += 1
             if ((150 <= r <= 200 and 150 <= g <= 200 and 150 <= b <= 200) or  # ハム/卵
-                (220 <= r <= 250 and 220 <= g <= 250 and 210 <= b <= 230)):   # おにぎり
+                (220 <= r <= 250 and 220 <= g <= 250 and 210 <= b <= 230) or  # おにぎり
+                (230 <= r <= 255 and 200 <= g <= 230 and 130 <= b <= 160)):    # 豆腐
                 food_color_count += 1
         logging.debug(f"ふわもこ色カウント: {fluffy_count}, 明るい色数: {bright_color_count}, 食品色数: {food_color_count}")
 
@@ -517,8 +520,8 @@ def process_image(image_data, text="", client=None, post=None):
         food_ratio = food_color_count / 5 if top_colors else 0.0
         logging.debug(f"肌色比率: {skin_ratio:.2%}, 食品色比率: {food_ratio:.2%}, ふわもこカラー数: {fluffy_count}")
 
-        if skin_ratio >= 0.5 or food_ratio >= 0.5:
-            logging.warning(f"⏭️ スキップ: 肌色比率 {skin_ratio:.2%} ≥ 50% または 食品色比率 {food_ratio:.2%} ≥ 50%")
+        if skin_ratio >= 0.5 or food_ratio > 0.2:  # 食品比率20%以上でスキップ
+            logging.warning(f"⏭️ スキップ: 肌色比率 {skin_ratio:.2%} ≥ 50% または 食品色比率 {food_ratio:.2%} > 20%")
             return False
         elif skin_ratio > 0.4 and fluffy_count == 0:
             logging.debug("肌色比率高く、ふわもこ色検出ゼロ→NG")
