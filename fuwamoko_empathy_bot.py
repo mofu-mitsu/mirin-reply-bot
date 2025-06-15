@@ -109,7 +109,7 @@ ORIGINAL_TEMPLATES = {
     }
 }
 
-# 🔽 グローバル辞書初期化（修正版）
+# 🔽 グローバル辞書初期化
 try:
     _ = globals()["EMOTION_TAGS"]
 except KeyError:
@@ -156,23 +156,6 @@ except KeyError:
 # 優先順位
 PRIORITY_ORDER = ["二次創作", "一次創作", "アニメ", "漫画", "イラスト"]
 
-# テンプレ（チャッピーの提案採用）
-CHARACTER_TEMPLATES_JP = {
-    "アニメ": ["アニメキャラがモフモフ！💕", "まるで夢の世界の住人🌟"],
-    "漫画": ["コマから飛び出してきたみたい！📖✨", "このタッチ、めちゃ好み…！💘"],
-    "イラスト": ["線の優しさに癒される…🖋️🌼", "色づかいがほんと素敵💖"],
-    "一次創作": ["オリキャラ尊い…🥺✨", "この子だけの世界観があるね💖"],
-    "二次創作": ["この解釈、天才すぎる…！🙌", "原作愛が伝わってくるよ✨"]
-}
-
-CHARACTER_TEMPLATES_EN = {
-    "anime": ["That anime character looks so fluffy! 💕", "Like someone straight out of a dream world~ 🌟"],
-    "manga": ["They look like they just stepped out of a manga panel! 📖✨", "I love the vibe of this linework! 💘"],
-    "illustration": ["The softness in these lines is so comforting~ 🖋️🌼", "The colors are simply beautiful! 💖"],
-    "oc": ["Your OC is precious… 🥺✨", "They have such a unique and magical world of their own 💖"],
-    "fanart": ["Your interpretation is genius! 🙌", "I can feel your love for the original work ✨"]
-}
-
 # テンプレ監査ログ
 TEMPLATE_AUDIT_LOG = "template_audit_log.txt"
 
@@ -210,9 +193,9 @@ def auto_revert_templates(templates):
 def is_fluffy_color(r, g, b):
     logging.debug(f"🧪 色判定: RGB=({r}, {g}, {b})")
 
-    # 白系（少し暗めでも許容）
-    if r > 180 and g > 180 and b > 180:
-        logging.debug("白系検出（優しめ）")
+    # 白系（明るさv > 200を追加）
+    if r > 180 and g > 180 and b > 180 and cv2.cvtColor(np.array([[[r, g, b]]], dtype=np.uint8), cv2.COLOR_RGB2HSV)[0][0][2] > 200:
+        logging.debug("白系検出（優しめ、明るさOK）")
         return True
 
     # ピンク系（明るさ優先）
@@ -244,12 +227,12 @@ def is_fluffy_color(r, g, b):
     h, s, v = hsv
     logging.debug(f"HSV=({h}, {s}, {v})")
 
-    if 200 <= h <= 300 and s < 80 and v > 180:
-        logging.debug("パステル系紫～ピンク検出")
+    if 200 <= h <= 300 and s < 80 and v > 200:  # 明るさを厳しく
+        logging.debug("パステル系紫～ピンク検出（明るさOK）")
         return True
 
-    if 190 <= h <= 260 and s < 100 and v > 140:
-        logging.debug("夜空パステル紫検出（広め）")
+    if 190 <= h <= 260 and s < 100 and v > 200:  # 夜空パステル紫、明るさ追加
+        logging.debug("夜空パステル紫検出（広め、明るさOK）")
         return True
 
     return False
@@ -258,7 +241,7 @@ def is_fluffy_color(r, g, b):
 FUWAMOKO_EMOJIS = r'[🐾🧸🌸🌟💕💖✨☁️🌷🐰🌼🌙]'
 FWA_GOBI = ["♡", "♪", "✨", "🌸", "🐾", "💖"]
 
-# ふわもこ口調変換辞書（長いフレーズから）
+# ふわもこ口調変換辞書
 fuwamoko_tone_map = [
     ("ありがとうございます", "ありがと🐰💓"),
     ("ありがとう", "ありがと♪"),
@@ -270,14 +253,12 @@ fuwamoko_tone_map = [
 ]
 
 def clean_output(text):
-    """装飾記号や無意味な出力を浄化"""
     text = re.sub(r'\n{2,}', '\n', text)
     text = re.sub(r'[^\w\sぁ-んァ-ン一-龯。、！？!?♡（）「」♪〜ー…w笑]+', '', text)
     text = re.sub(r'[。、！？]{2,}', lambda m: m.group(0)[0], text)
     return text.strip()
 
 def apply_fuwamoko_tone(reply):
-    """ふわもこ口調に変換"""
     for formal, soft in fuwamoko_tone_map:
         reply = reply.replace(formal, soft)
     return reply
@@ -297,10 +278,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         r"!{5,}", r"\?{5,}", r"[!？]{5,}",
         r"(?:(ふわ|もこ|もち|ぽこ)\1{2,})",
         r"[♪~]{2,}",
-        r"(#\w+){3,}",  # ハッシュタグ3個以上
-        r"^[^\w\s]+$",  # 絵文字羅列
-        r"(\w+\s*,){3,}",  # 単語列
-        r"[\*:\.]{2,}"  # 装飾記号連鎖
+        r"(#\w+){3,}",
+        r"^[^\w\s]+$", r"(\w+\s*,){3,}", r"[\*:\.]{2,}"
     ]
 
     templates = deepcopy(ORIGINAL_TEMPLATES)
@@ -323,7 +302,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         if any(word in text.lower() for word in words):
             detected_tags.append(tag)
 
-    if "food" in detected_tags or any(word.lower() in text.lower() for word in NG_WORDS):
+    if "food_ng" in detected_tags or any(word.lower() in text.lower() for word in NG_WORDS):
         logging.debug(f"🍽️ NGワード/食事検出: {text[:40]}")
         return random.choice(MOGUMOGU_TEMPLATES_JP) if lang == "ja" else random.choice(MOGUMOGU_TEMPLATES_EN)
     elif "shonbori" in detected_tags:
@@ -373,7 +352,7 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             max_new_tokens=30,
             pad_token_id=tokenizer.pad_token_id,
             do_sample=True,
-            temperature=0.7,  # ランダム性を微増
+            temperature=0.7,
             top_k=50,
             top_p=0.9,
             no_repeat_ngram_size=2
@@ -382,7 +361,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
         logging.debug(f"🧸 Raw AI出力（生データ）: {raw_reply}")
         logging.debug(f"🧸 AI出力（クリーン後）: {clean_output(raw_reply)}")
 
-        reply = re.sub(r'^.*?返信:\s*', '', raw_reply, flags=re.DOTALL).strip()
+        # テンプレ部分を厳密にカット
+        reply = re.sub(r'^.*?# 本文\nユーザー:.*?\n返信:', '', raw_reply, flags=re.DOTALL).strip()
         reply = clean_output(reply)
         reply = apply_fuwamoko_tone(reply)
 
@@ -399,8 +379,8 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
             reply = "。".join(sentences[:3]) + "…"
             logging.debug(f"📏 長文カット: {reply}")
 
-        if len(reply) < 15 or len(reply) > 35:
-            logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過")
+        if len(reply) < 10 or len(reply) > 50:  # 長さ範囲を調整
+            logging.warning(f"⏭️ SKIP: 長さ不適切: len={len(reply)}, テキスト: {reply[:60]}, 理由: 長さ超過/不足")
             return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
 
         for bad in NG_PHRASES:
@@ -426,14 +406,14 @@ def open_calm_reply(image_url, text="", context="ふわもこ共感", lang="ja")
 
         if reply in [ex[1] for ex in examples]:
             logging.warning("テンプレ返答と一致、リトライ中…")
-            return open_calm_reply(image_url, text, context, lang)  # リトライ
+            return open_calm_reply(image_url, text, context, lang)
 
         logging.info(f"🦊 AI生成成功: {reply}, 長さ: {len(reply)}, 絵文字: {emoji_count}")
         return reply
     except Exception as e:
         logging.error(f"❌ AI生成エラー: {type(e).__name__}: {e}")
         return random.choice(NORMAL_TEMPLATES_JP) if lang == "ja" else random.choice(NORMAL_TEMPLATES_EN)
-        
+
 def extract_valid_cid(ref):
     try:
         cid_candidate = str(ref.link) if hasattr(ref, 'link') else str(ref)
@@ -458,11 +438,8 @@ def check_skin_ratio(img_pil_obj):
             return 0.0
 
         hsv_img = cv2.cvtColor(img_np, cv2.COLOR_BGR2HSV)
-
-        # 肌色範囲をやや厳しめに設定（ふわもこピンク・白の誤検知防止）
         lower = np.array([5, 40, 60], dtype=np.uint8)
         upper = np.array([17, 170, 255], dtype=np.uint8)
-
         mask = cv2.inRange(hsv_img, lower, upper)
         skin_colors = img_np[mask > 0]
 
@@ -478,17 +455,14 @@ def check_skin_ratio(img_pil_obj):
         skin_ratio = skin_area / total_area if total_area > 0 else 0.0
         logging.debug(f"肌色比率: {skin_ratio:.2%}")
         return skin_ratio
-
     except Exception as e:
         logging.error(f"❌ 肌色解析エラー: {type(e).__name__}: {e}")
         return 0.0
 
 def is_mutual_follow(client, handle):
     try:
-        their_followers = client.get_followers(actor=handle, limit=100).followers
-        their_followers = {f.handle for f in their_followers}
-        my_followers = client.get_followers(actor=HANDLE, limit=100).followers
-        my_followers = {f.handle for f in my_followers}
+        their_followers = {f.handle for f in client.get_followers(actor=handle, limit=100).followers}
+        my_followers = {f.handle for f in client.get_followers(actor=HANDLE, limit=100).followers}
         return handle in my_followers and HANDLE in their_followers
     except Exception as e:
         logging.error(f"❌ 相互フォロー判定エラー: {type(e).__name__}: {e}")
@@ -501,21 +475,12 @@ def download_image_from_blob(cid, client, did=None):
 
     if client and did:
         try:
-            logging.debug(f"🦊 Blob APIリクエスト開始: CID={cid}, DID={did}")
             blob = client.com.atproto.repo.get_blob(cid=cid, did=did)
-            logging.debug(f"Blob API取得成功: size={len(blob.data)} bytes")
             img_data = BytesIO(blob.data)
-            try:
-                img = Image.open(img_data)
-                logging.info(f"🟢 Blob画像形式={img.format}, サイズ={img.size}")
-                img.load()
-                return img
-            except (UnidentifiedImageError, OSError) as e:
-                logging.error(f"❌ Blob画像解析失敗: {type(e).__name__}: {e}")
-                return None
-            except Exception as e:
-                logging.error(f"❌ Blob画像読み込みエラー: {type(e).__name__}: {e}")
-                return None
+            img = Image.open(img_data)
+            img.load()
+            logging.info(f"🟢 Blob画像形式={img.format}, サイズ={img.size}")
+            return img
         except Exception as e:
             logging.error(f"❌ Blob APIエラー: {type(e).__name__}: {e}")
 
@@ -528,23 +493,14 @@ def download_image_from_blob(cid, client, did=None):
 
     for url in [u for u in cdn_urls if u]:
         try:
-            logging.debug(f"🦊 CDNリクエスト開始: CID={cid}, url={url}")
             response = requests.get(url, headers=headers, timeout=10, stream=True)
             response.raise_for_status()
-            logging.debug(f"CDN取得成功: サイズ={len(response.content)} bytes")
             img_data = BytesIO(response.content)
-            try:
-                img = Image.open(img_data)
-                logging.info(f"🟢 画像形式={img.format}, サイズ={img.size}")
-                img.load()
-                return img
-            except (UnidentifiedImageError, OSError) as e:
-                logging.error(f"❌ 画像解析失敗: {type(e).__name__}: {e}, url={url}")
-                return None
-            except Exception as e:
-                logging.error(f"❌ 画像取得エラー: {type(e).__name__}: {e}, url={url}")
-                return None
-        except requests.RequestException as e:
+            img = Image.open(img_data)
+            img.load()
+            logging.info(f"🟢 画像形式={img.format}, サイズ={img.size}")
+            return img
+        except Exception as e:
             logging.error(f"❌ CDN取得失敗: {type(e).__name__}: {e}, url={url}")
             continue
 
@@ -567,7 +523,6 @@ def process_image(image_data, text="", client=None, post=None):
             logging.warning("⏭️ スキップ: 画像取得失敗（ログは上記）")
             return False
 
-        # 明度フィルターを適用してトップカラー抽出
         resized_img = img.resize((64, 64))
         hsv_img = cv2.cvtColor(np.array(resized_img), cv2.COLOR_RGB2HSV)
         bright_colors = [(r, g, b) for (r, g, b), (_, s, v) in zip(resized_img.getdata(), hsv_img.reshape(-1, 3)) if v > 160]
@@ -581,14 +536,13 @@ def process_image(image_data, text="", client=None, post=None):
             r, g, b = color
             if is_fluffy_color(r, g, b):
                 fluffy_count += 1
-            if r > 180 and g > 180 and b > 180:  # 明るい色カウント
+            if r > 180 and g > 180 and b > 180:
                 bright_color_count += 1
         logging.debug(f"ふわもこ色カウント: {fluffy_count}, 明るい色数: {bright_color_count}")
 
         skin_ratio = check_skin_ratio(img)
         logging.debug(f"肌色比率: {skin_ratio:.2%}, ふわもこカラー数: {fluffy_count}")
 
-        # 肌色比率50%以上でスキップ
         if skin_ratio >= 0.5:
             logging.warning(f"⏭️ スキップ: 肌色比率 {skin_ratio:.2%} ≥ 50%")
             return False
